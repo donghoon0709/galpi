@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 4,
+  "date": "2026-08-27",
+  "build": "signed Release after full-repair interference compensation",
+  "contentFree": true,
+  "steps": [
+    {
+      "id": "launch",
+      "action": "Launch the signed Release app.",
+      "result": "passed",
+      "observed": {"processRunning": true, "statusItemName": "Galpi", "statusItemDescription": "status menu"}
+    },
+    {
+      "id": "status-menu",
+      "action": "Open the status item through accessibility automation.",
+      "result": "passed",
+      "observed": {"items": ["OpenAI API Key…", "Pending Lookups…", "Capture Privacy & Shortcut…", "Show Evidence Location", "Clear Evidence", "Quit Galpi"]}
+    },
+    {
+      "id": "pending-empty",
+      "action": "Open Pending Lookups before the synthetic invocation.",
+      "result": "passed",
+      "observed": {"rowCount": 0, "status": "No pending or failed lookups", "retryEnabled": false, "deleteEnabled": false, "refreshEnabled": true}
+    },
+    {
+      "id": "key-settings",
+      "action": "Open API-key settings without changing Keychain.",
+      "result": "passed",
+      "observed": {"secureFieldSubrole": "AXSecureTextField", "prefilledCharacterCount": 0, "presenceState": "absent", "buttons": ["Save", "Cancel"], "existingValueDisplayed": false}
+    },
+    {
+      "id": "service",
+      "action": "Invoke Collect Word Context with a unique synthetic NSServices pasteboard.",
+      "result": "passed",
+      "observed": {"NSPerformService": true, "captureSource": "NSServices invocation pasteboard"}
+    },
+    {
+      "id": "panel-disclosure",
+      "action": "Inspect the production nonactivating panel before Return through its accessibility help.",
+      "result": "passed",
+      "observed": {
+        "agentFrontmost": false,
+        "panelRole": "AXSystemDialog",
+        "viewRole": "AXGroup",
+        "viewDescription": "Lookup selection",
+        "disclosureElements": ["normalized sentence", "exact surface", "stored locally", "sent to OpenAI", "store:false", "Escape keeps nothing"]
+      }
+    },
+    {
+      "id": "missing-key",
+      "action": "Press Return while no API key exists.",
+      "result": "passed",
+      "observed": {"agentFrontmost": false, "postConfirmHelpMentionsStoreFalse": true, "providerRequestCompleted": false}
+    },
+    {
+      "id": "durable-dismissal",
+      "action": "Press Escape after confirmation, then reopen Pending Lookups.",
+      "result": "passed",
+      "observed": {"panelClosed": true, "rowCount": 1, "contentHidden": true, "status": "Failed", "attemptCount": 0, "sanitizedState": "OpenAI API key required."}
+    },
+    {
+      "id": "manual-retry",
+      "action": "Select the opaque failed row and invoke Retry.",
+      "result": "passed",
+      "observed": {"retryInvoked": true, "rowCount": 1, "finalStatus": "Failed", "attemptCount": 0, "sanitizedState": "OpenAI API key required.", "providerRequestCompleted": false}
+    },
+    {
+      "id": "delayed-termination",
+      "action": "Quit through the production status menu while the durable failed row exists.",
+      "result": "passed",
+      "observed": {"terminationRoute": "Quit Galpi", "processExited": true, "executorShutdownAwaitedByApplicationTerminationReply": true}
+    },
+    {
+      "id": "relaunch-recovery",
+      "action": "Relaunch the same signed build and reopen Pending Lookups.",
+      "result": "passed",
+      "observed": {"processRunning": true, "rowCount": 1, "contentHidden": true}
+    },
+    {
+      "id": "delete-cleanup",
+      "action": "Delete the unresolved synthetic Encounter, relaunch once more, and recheck the management surface.",
+      "result": "passed",
+      "observed": {"rowCount": 0, "status": "No pending or failed lookups", "cleanupPersistedAcrossRelaunch": true}
+    }
+  ],
+  "privacy": {
+    "selectedTextRecorded": false,
+    "selectedSurfaceRecorded": false,
+    "providerOutputRecorded": false,
+    "credentialRecorded": false,
+    "pasteboardTypeIdentifierRecorded": false,
+    "sourceApplicationRecorded": false,
+    "windowTitleOrURLRecorded": false,
+    "personalPathRecorded": false
+  }
+}

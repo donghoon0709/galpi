@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "asOfDate": "2026-08-26",
+  "evaluationMode": "gpt-5.4-mini-escalation",
+  "source": {
+    "url": "https://developers.openai.com/api/docs/models/gpt-5.4-mini",
+    "modelId": "gpt-5.4-mini-2026-03-17",
+    "responses": true,
+    "streaming": true,
+    "structuredOutputs": true,
+    "maximumOutputTokens": 128000,
+    "inputUSDPerMillionTokens": 0.75,
+    "cachedInputUSDPerMillionTokens": 0.075,
+    "outputUSDPerMillionTokens": 4.5
+  },
+  "callability": "strict streamed Responses probe passed",
+  "manifest": "M2a-Mini-Evidence/live/model-gate-manifest.json"
+}

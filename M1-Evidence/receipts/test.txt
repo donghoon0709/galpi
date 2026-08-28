@@ -1,0 +1,132 @@
+$ xcodebuild -project Galpi.xcodeproj -scheme Galpi -destination platform=macOS test
+exit=0
+
+STDOUT
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project Galpi.xcodeproj -scheme Galpi -destination platform=macOS test
+
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (2 targets)
+    Target 'GalpiTests' in project 'Galpi'
+        ➜ Explicit dependency on target 'Galpi' in project 'Galpi'
+    Target 'Galpi' in project 'Galpi' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: dc881f643727439ee8a16e391e849268
+Build description path: /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Intermediates.noindex/XCBuildData/dc881f643727439ee8a16e391e849268.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk /Users/donghoon/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx26.2-25C57-00fa09913b459cbbc988d1f6730289ae.sdkstatcache
+    cd /Users/donghoon/Desktop/Programming/galpi/Galpi.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk -o /Users/donghoon/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx26.2-25C57-00fa09913b459cbbc988d1f6730289ae.sdkstatcache
+
+ProcessProductPackaging "" /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Intermediates.noindex/Galpi.build/Debug/Galpi.build/Galpi.app.xcent (in target 'Galpi' from project 'Galpi')
+    cd /Users/donghoon/Desktop/Programming/galpi
+    
+    Entitlements:
+    
+    {
+    "com.apple.security.get-task-allow" = 1;
+}
+    
+    builtin-productPackagingUtility -entitlements -format xml -o /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Intermediates.noindex/Galpi.build/Debug/Galpi.build/Galpi.app.xcent
+
+ProcessProductPackagingDER /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Intermediates.noindex/Galpi.build/Debug/Galpi.build/Galpi.app.xcent /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Intermediates.noindex/Galpi.build/Debug/Galpi.build/Galpi.app.xcent.der (in target 'Galpi' from project 'Galpi')
+    cd /Users/donghoon/Desktop/Programming/galpi
+    /usr/bin/derq query -f xml -i /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Intermediates.noindex/Galpi.build/Debug/Galpi.build/Galpi.app.xcent -o /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Intermediates.noindex/Galpi.build/Debug/Galpi.build/Galpi.app.xcent.der --raw
+
+ProcessInfoPlistFile /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app/Contents/Info.plist /Users/donghoon/Desktop/Programming/galpi/Galpi/Info.plist (in target 'Galpi' from project 'Galpi')
+    cd /Users/donghoon/Desktop/Programming/galpi
+    builtin-infoPlistUtility /Users/donghoon/Desktop/Programming/galpi/Galpi/Info.plist -producttype com.apple.product-type.application -genpkginfo /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app/Contents/PkgInfo -expandbuildsettings -platform macosx -o /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app/Contents/Info.plist
+
+CopySwiftLibs /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app (in target 'Galpi' from project 'Galpi')
+    cd /Users/donghoon/Desktop/Programming/galpi
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app/Contents/MacOS/Galpi --scan-folder /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app/Contents/Frameworks --scan-folder /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app/Contents/PlugIns --scan-folder /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app/Contents/Library/SystemExtensions --scan-folder /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app/Contents/Extensions --platform macosx --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app/Contents/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Intermediates.noindex/Galpi.build/Debug/Galpi.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+ProcessInfoPlistFile /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app/Contents/PlugIns/GalpiTests.xctest/Contents/Info.plist /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Intermediates.noindex/Galpi.build/Debug/GalpiTests.build/empty-GalpiTests.plist (in target 'GalpiTests' from project 'Galpi')
+    cd /Users/donghoon/Desktop/Programming/galpi
+    builtin-infoPlistUtility /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Intermediates.noindex/Galpi.build/Debug/GalpiTests.build/empty-GalpiTests.plist -producttype com.apple.product-type.bundle.unit-test -expandbuildsettings -platform macosx -o /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app/Contents/PlugIns/GalpiTests.xctest/Contents/Info.plist
+
+CopySwiftLibs /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app/Contents/PlugIns/GalpiTests.xctest (in target 'GalpiTests' from project 'Galpi')
+    cd /Users/donghoon/Desktop/Programming/galpi
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app/Contents/PlugIns/GalpiTests.xctest/Contents/MacOS/GalpiTests --scan-folder /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app/Contents/PlugIns/GalpiTests.xctest/Contents/Frameworks --scan-folder /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app/Contents/PlugIns/GalpiTests.xctest/Contents/PlugIns --scan-folder /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app/Contents/PlugIns/GalpiTests.xctest/Contents/Library/SystemExtensions --scan-folder /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app/Contents/PlugIns/GalpiTests.xctest/Contents/Extensions --platform macosx --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app/Contents/PlugIns/GalpiTests.xctest/Contents/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Intermediates.noindex/Galpi.build/Debug/GalpiTests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+CodeSign /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app (in target 'Galpi' from project 'Galpi')
+    cd /Users/donghoon/Desktop/Programming/galpi
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --entitlements /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Intermediates.noindex/Galpi.build/Debug/Galpi.build/Galpi.app.xcent --timestamp\=none --generate-entitlement-der /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app
+/Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app: replacing existing signature
+
+Validate /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app (in target 'Galpi' from project 'Galpi')
+    cd /Users/donghoon/Desktop/Programming/galpi
+    builtin-validationUtility /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app -no-validate-extension -infoplist-subpath Contents/Info.plist
+
+RegisterWithLaunchServices /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app (in target 'Galpi' from project 'Galpi')
+    cd /Users/donghoon/Desktop/Programming/galpi
+    /System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister -f -R -trusted /Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Build/Products/Debug/Galpi.app
+
+
+Test session results, code coverage, and logs:
+	/Users/donghoon/Library/Developer/Xcode/DerivedData/Galpi-dcgpbszadvvrfjessvqqdlyufblz/Logs/Test/Test-Galpi-2026.08.26_13-13-46-+0900.xcresult
+
+** TEST SUCCEEDED **
+
+Testing started
+Test suite 'CaptureModelTests' started on 'My Mac - Galpi (96345)'
+Test case 'CaptureModelTests.testEnglishSegmentsPreserveInteriorPunctuationAndSpacing()' passed on 'My Mac - Galpi (96345)' (0.005 seconds)
+Test case 'CaptureModelTests.testInteriorApostropheRemainsPartOfToken()' passed on 'My Mac - Galpi (96345)' (0.001 seconds)
+Test case 'CaptureModelTests.testInvalidTokenRangesDoNotProduceSurface()' passed on 'My Mac - Galpi (96345)' (0.003 seconds)
+Test case 'CaptureModelTests.testJapaneseAndMixedScriptSegmentationNeedsNoLinguisticHints()' passed on 'My Mac - Galpi (96345)' (0.020 seconds)
+Test case 'CaptureModelTests.testKeyboardAnchorFocusTransitionsAreDeterministic()' passed on 'My Mac - Galpi (96345)' (0.001 seconds)
+Test case 'CaptureModelTests.testKeyboardExtensionExposesOverLimitStateImmediately()' passed on 'My Mac - Galpi (96345)' (0.001 seconds)
+Test case 'CaptureModelTests.testMouseDragSelectsContiguousTokenRange()' passed on 'My Mac - Galpi (96345)' (0.001 seconds)
+Test case 'CaptureModelTests.testNormalizationUsesNFCAndCollapsesUnicodeWhitespace()' passed on 'My Mac - Galpi (96345)' (0.006 seconds)
+Test case 'CaptureModelTests.testSentenceScalarBoundaryAccepts2000AndRejects2001()' passed on 'My Mac - Galpi (96345)' (0.002 seconds)
+Test case 'CaptureModelTests.testSurfaceScalarBoundaryAccepts500AndRejects501()' passed on 'My Mac - Galpi (96345)' (0.001 seconds)
+Test case 'CaptureModelTests.testUTF16HitMappingFindsTokensAroundNonTokenEmoji()' passed on 'My Mac - Galpi (96345)' (0.005 seconds)
+Test case 'CaptureModelTests.testWhitespaceOnlyInputIsRejected()' passed on 'My Mac - Galpi (96345)' (0.001 seconds)
+Test suite 'DiagnosticPanelStateTests' started on 'My Mac - Galpi (96345)'
+Test case 'DiagnosticPanelStateTests.testCapturePanelCanBecomeKeyButNeverMain()' passed on 'My Mac - Galpi (96345)' (0.005 seconds)
+Test case 'DiagnosticPanelStateTests.testKeyTransitionPreservesInitialOverLimitMessage()' passed on 'My Mac - Galpi (96345)' (0.003 seconds)
+Test suite 'PanelPositionerTests' started on 'My Mac - Galpi (96345)'
+Test case 'PanelPositionerTests.testClampsBothAxesWithinVisibleFrame()' passed on 'My Mac - Galpi (96345)' (0.001 seconds)
+Test case 'PanelPositionerTests.testClampsVerticalPositionWhenPointerIsAboveScreen()' passed on 'My Mac - Galpi (96345)' (0.001 seconds)
+Test case 'PanelPositionerTests.testFlipsAboveWhenBelowWouldLeaveScreen()' passed on 'My Mac - Galpi (96345)' (0.000 seconds)
+Test case 'PanelPositionerTests.testPlacesPanelBelowPointer()' passed on 'My Mac - Galpi (96345)' (0.000 seconds)
+Test case 'PanelPositionerTests.testPreservesNegativeCoordinateScreenBounds()' passed on 'My Mac - Galpi (96345)' (0.000 seconds)
+Test case 'PanelPositionerTests.testSelectsContainingScreenThenNearestFallback()' passed on 'My Mac - Galpi (96345)' (0.000 seconds)
+Test suite 'EvidencePrivacyTests' started on 'My Mac - Galpi (96345)'
+Test case 'EvidencePrivacyTests.testEncodedEvidenceCannotContainSentenceOrSelectedSurfaceFields()' passed on 'My Mac - Galpi (96345)' (0.001 seconds)
+Test case 'EvidencePrivacyTests.testEvidenceSchemaContainsOnlyContentFreeFields()' passed on 'My Mac - Galpi (96345)' (0.000 seconds)
+Test suite 'PanelLifecycleStateTests' started on 'My Mac - Galpi (96345)'
+Test case 'PanelLifecycleStateTests.testMonitorInstallationIsSingleUsePerGeneration()' passed on 'My Mac - Galpi (96345)' (0.001 seconds)
+Test case 'PanelLifecycleStateTests.testReplacementGenerationRejectsStaleCallbacksAndBalancesMonitors()' passed on 'My Mac - Galpi (96345)' (0.000 seconds)
+
+STDERR
+2026-08-26 13:13:46.572 xcodebuild[96265:5153888] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:macOS, arch:arm64, id:00008103-001255900E33001E, name:My Mac }
+{ platform:macOS, arch:x86_64, id:00008103-001255900E33001E, name:My Mac }
+2026-08-26 13:13:52.015 xcodebuild[96265:5153888] [MT] IDETestOperationsObserverDebug: 2.372 elapsed -- Testing started completed.
+2026-08-26 13:13:52.015 xcodebuild[96265:5153888] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-08-26 13:13:52.015 xcodebuild[96265:5153888] [MT] IDETestOperationsObserverDebug: 2.372 sec, +2.372 sec -- end

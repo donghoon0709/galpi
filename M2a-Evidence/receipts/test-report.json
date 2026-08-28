@@ -1,0 +1,291 @@
+{
+  "command": [
+    "xcodebuild",
+    "-project",
+    "Galpi.xcodeproj",
+    "-scheme",
+    "Galpi",
+    "-destination",
+    "platform=macOS",
+    "test"
+  ],
+  "exitCode": 0,
+  "failedCount": 0,
+  "kind": "api-package-test-report",
+  "passedCount": 54,
+  "schemaVersion": 1,
+  "status": "passed",
+  "testCount": 54,
+  "tests": [
+    {
+      "durationSeconds": 0.015516042709350586,
+      "name": "testAccessFilteringAndPersistenceBeforeBenchmark()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0009390115737915039,
+      "name": "testBoundaryLimitsRejectBeforeTransport()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0036829710006713867,
+      "name": "testCRLFCommentsAndMultilineDataAreDecoded()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0006910562515258789,
+      "name": "testCancellationIsReported()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.012724041938781738,
+      "name": "testCapturePanelCanBecomeKeyButNeverMain()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0006030797958374023,
+      "name": "testClampsBothAxesWithinVisibleFrame()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.001053929328918457,
+      "name": "testClampsVerticalPositionWhenPointerIsAboveScreen()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.009858012199401855,
+      "name": "testCoordinatorRefusesInvalidAndUnpersistedManifest()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.015422940254211426,
+      "name": "testCorpusBindsAllSyntheticCasesAndComposition()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.001035928726196289,
+      "name": "testCostMathAndNearestRankP95()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0008279085159301758,
+      "name": "testDeadlineIsEnforcedBeforeAStalledStreamProducesData()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.009560942649841309,
+      "name": "testDeadlineIsEnforcedWhileTransportConnects()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0049849748611450195,
+      "name": "testDocumentaryDraftIsExplicitlyInvalidWithoutCallabilityEvidence()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0018379688262939453,
+      "name": "testEncodedEvidenceCannotContainSentenceOrSelectedSurfaceFields()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.013567090034484863,
+      "name": "testEnglishSegmentsPreserveInteriorPunctuationAndSpacing()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0006159543991088867,
+      "name": "testEnvironmentGuardFailsBeforeLiveConstruction()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0010859966278076172,
+      "name": "testEvaluatorScoresBoundariesAndRejectsEcho()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0005409717559814453,
+      "name": "testEvidenceSchemaContainsOnlyContentFreeFields()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0005079507827758789,
+      "name": "testFlipsAboveWhenBelowWouldLeaveScreen()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.018177032470703125,
+      "name": "testHappyPathMakes216CallsAndReportHasNoSensitiveCodingKeys()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0007259845733642578,
+      "name": "testInteriorApostropheRemainsPartOfToken()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.005386948585510254,
+      "name": "testInvalidTokenRangesDoNotProduceSurface()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0013020038604736328,
+      "name": "testInvalidUTF8AndLateNonterminalAfterCompletionAreRejected()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.03626096248626709,
+      "name": "testJapaneseAndMixedScriptSegmentationNeedsNoLinguisticHints()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.007156014442443848,
+      "name": "testKeyTransitionPreservesInitialOverLimitMessage()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0008069276809692383,
+      "name": "testKeyboardAnchorFocusTransitionsAreDeterministic()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0006259679794311523,
+      "name": "testKeyboardExtensionExposesOverLimitStateImmediately()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0025479793548583984,
+      "name": "testMalformedEventJSONSchemaAndMissingUsageAreRejected()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.003314971923828125,
+      "name": "testManifestRejectsCandidateEvidenceRepetitionsAndHashes()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.001466989517211914,
+      "name": "testMonitorInstallationIsSingleUsePerGeneration()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0005888938903808594,
+      "name": "testMouseDragSelectsContiguousTokenRange()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0014160871505737305,
+      "name": "testNoWinnerWhenAllCandidatesIneligible()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0010160207748413086,
+      "name": "testNormalResponsesLifecycleEventsAreAccepted()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.009377002716064453,
+      "name": "testNormalizationUsesNFCAndCollapsesUnicodeWhitespace()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0006510019302368164,
+      "name": "testPlacesPanelBelowPointer()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0010020732879638672,
+      "name": "testPrematureEOFAndDuplicateTerminalAreRejected()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.001990079879760742,
+      "name": "testPreservesNegativeCoordinateScreenBounds()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.007637977600097656,
+      "name": "testRefusalIncompleteAndProviderFailureAreRejected()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.04703402519226074,
+      "name": "testReplacementGenerationRejectsStaleCallbacksAndBalancesMonitors()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.001170039176940918,
+      "name": "testRequestBodyUsesRequiredPrivacyAndSchemaContract()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0012290477752685547,
+      "name": "testResponseByteLimitIsEnforced()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0012869834899902344,
+      "name": "testSelectWinnerFiltersIneligibleThenUsesTieBreaks()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0016210079193115234,
+      "name": "testSelectsContainingScreenThenNearestFallback()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.031162023544311523,
+      "name": "testSentenceScalarBoundaryAccepts2000AndRejects2001()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0006729364395141602,
+      "name": "testStrictResponsesProbeProducesConcreteContentFreeEvidence()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.001120924949645996,
+      "name": "testSuccessfulSplitFramesProduceValidatedResult()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.000720977783203125,
+      "name": "testSurfaceScalarBoundaryAccepts500AndRejects501()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0012930631637573242,
+      "name": "testThresholdEdgesAndFailureDisqualification()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.00277101993560791,
+      "name": "testTypeOnlySSEEventDerivesNameFromJSONType()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.009702920913696289,
+      "name": "testURLProtocolTransportHandlesSplitSSEAndHTTPStatus()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.003812074661254883,
+      "name": "testURLSessionProducerOverflowFailsWithoutUnboundedBacklog()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0067899227142333984,
+      "name": "testUTF16HitMappingFindsTokensAroundNonTokenEmoji()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0006730556488037109,
+      "name": "testWhitespaceOnlyInputIsRejected()",
+      "result": "Passed"
+    },
+    {
+      "durationSeconds": 0.0052490234375,
+      "name": "testWriteOnceCreatesParentAndRefusesReplacement()",
+      "result": "Passed"
+    }
+  ]
+}

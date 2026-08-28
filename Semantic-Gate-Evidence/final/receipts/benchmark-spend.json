@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "kind": "algorithm-cost-report",
+  "date": "2026-08-27",
+  "currency": "USD",
+  "attempts": [
+    {"id": "live", "terminal": "judge_failed", "judgeCost": 0.100116, "candidateCost": 0.0005553},
+    {"id": "live-v2", "terminal": "judge_failed", "judgeCost": 0.018424, "candidateCost": 0.0004509},
+    {"id": "live-v3", "terminal": "calibration_failed", "judgeCost": 0.229964, "candidateCost": 0.00047725},
+    {"id": "live-v4", "terminal": "judge_failed", "judgeCost": 0.00918, "candidateCost": 0.00046355},
+    {"id": "live-v5", "terminal": "judge_failed", "judgeCost": 0.485148, "candidateCost": 0.01053805},
+    {"id": "live-v6", "terminal": "judge_failed_after_two_complete_candidates", "judgeCost": 0.62072, "candidateCost": 0.0218228},
+    {"id": "live-v7", "terminal": "interrupted_after_callability", "judgeCost": 0.002324, "candidateCost": 0.00046695}
+  ],
+  "totalJudgeCost": 1.465876,
+  "totalCandidateCost": 0.0347748,
+  "totalEstimatedBenchmarkCost": 1.5006508,
+  "note": "Historical attempts are retained truthfully. No additional full retry was performed after the user selected Luna."
+}

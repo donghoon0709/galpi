@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "surface": "native",
+  "tool": "macOS System Events and GJC computer",
+  "actions": [
+    {"type": "click", "timestamp": 1, "selector": "Safari > Services > Collect Word Context"},
+    {"type": "press", "timestamp": 2, "selector": "Safari focused selected-text control", "key": "Control-Option-Command-G"},
+    {"type": "click", "timestamp": 3, "selector": "Preview > Services > Collect Word Context"},
+    {"type": "press", "timestamp": 4, "selector": "Preview selected PDF text", "key": "Control-Option-Command-G"},
+    {"type": "click", "timestamp": 5, "selector": "Notes > Services > Collect Word Context"},
+    {"type": "press", "timestamp": 6, "selector": "Notes selected editor text", "key": "Control-Option-Command-G"},
+    {"type": "click", "timestamp": 7, "selector": "Galpi token in Safari panel"},
+    {"type": "click", "timestamp": 8, "selector": "Galpi token in Preview panel"},
+    {"type": "click", "timestamp": 9, "selector": "Galpi token in Notes panel"},
+    {"type": "drag", "timestamp": 10, "selector": "Galpi token range with paced native pointer events"},
+    {"type": "press", "timestamp": 11, "selector": "Galpi 501-scalar selection", "key": "Return"},
+    {"type": "press", "timestamp": 12, "selector": "Safari 2001-scalar selected-text control", "key": "Control-Option-Command-G"},
+    {"type": "click", "timestamp": 13, "selector": "Point outside replacement Galpi panel"},
+    {"type": "custom", "timestamp": 14, "target": "Quit Galpi while panel and monitor set are live"},
+    {"type": "click", "timestamp": 15, "selector": "Galpi > Capture Privacy & Shortcut"}
+  ],
+  "assertions": [
+    {"timestamp": 16, "selector": "Six indexed host-route JSONL files", "status": "passed"},
+    {"timestamp": 17, "selector": "All route panelReady events key and non-main", "status": "passed"},
+    {"timestamp": 18, "selector": "All shortcut routes full keyboard action set", "status": "passed"},
+    {"timestamp": 19, "selector": "All menu routes live mouseSelect", "status": "passed"},
+    {"timestamp": 20, "selector": "Live paced drag expands one token to five contiguous tokens", "status": "passed"},
+    {"timestamp": 21, "selector": "501-scalar confirmationEligible false before and after Return", "status": "passed"},
+    {"timestamp": 22, "selector": "2001-scalar serviceRejected with no panel", "status": "passed"},
+    {"timestamp": 23, "selector": "Whitespace-only invocation creates no evidence", "status": "passed"},
+    {"timestamp": 24, "selector": "Replacement and outside-click monitor lifecycle balanced", "status": "passed"},
+    {"timestamp": 25, "selector": "Termination dismissal and monitor removal flushed", "status": "passed"},
+    {"timestamp": 26, "selector": "Privacy and shortcut disclosure reachable from Galpi menu", "status": "passed"},
+    {"timestamp": 27, "selector": "No content-bearing screenshot retained", "status": "passed"}
+  ]
+}

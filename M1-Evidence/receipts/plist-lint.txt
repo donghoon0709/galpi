@@ -1,0 +1,7 @@
+$ plutil -lint /Applications/Galpi.app/Contents/Info.plist
+exit=0
+
+STDOUT
+/Applications/Galpi.app/Contents/Info.plist: OK
+
+STDERR

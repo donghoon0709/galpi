@@ -1,0 +1,6 @@
+Command: codesign --verify --deep --strict --verbose=2 <Release/Galpi.app>
+Exit: 0
+Identifier: com.galpi.app
+Architecture: arm64
+CodeHashSHA256: c5a0992841ee94c45ed30100988ea50f50974d2906ce971537ee9a8e92027d71
+Identity/account retained: false

@@ -1,0 +1,6 @@
+Command: codesign --verify --deep --strict --verbose=2 <Release/Galpi.app>
+Exit: 0
+Result: valid on disk; satisfies designated requirement
+Identifier: com.galpi.app
+Architecture: arm64
+CodeHashSHA256: bf43061ce5533db9216227656d948a3c563a255de361566c40f7bab1998b08f5

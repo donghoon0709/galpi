@@ -1,0 +1,21 @@
+{
+  "candidates": [
+    {
+      "eligible": false,
+      "meanCostUSD": 0.000094983333333333333333333333333333333333,
+      "modelID": "gpt-5.6-luna",
+      "p95CostUSD": 0.000123,
+      "p95Milliseconds": 2276
+    },
+    {
+      "eligible": false,
+      "meanCostUSD": 0.000070703472222222222222222222222222222222,
+      "modelID": "gpt-5.4-nano-2026-03-17",
+      "p95CostUSD": 0.0000927,
+      "p95Milliseconds": 1429
+    }
+  ],
+  "corpusHash": "890e13ca42657c1bacf5c1812d24627be5b093f42458d7bd8385c592277c2452",
+  "manifestHash": "d340801f483ae8dd8a3d01eb10b8267692adff95b6c2de7d09720c986542b661",
+  "winnerModelID": null
+}

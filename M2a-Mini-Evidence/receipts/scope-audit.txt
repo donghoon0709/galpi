@@ -1,0 +1,11 @@
+Evaluation mode: gpt-5.4-mini-escalation
+Exact candidate: gpt-5.4-mini-2026-03-17 only
+Reusable runner preflight: the full canonical Mini documentary candidate value (count, ID, source URL/date, capabilities, max output, pricing, and empty pre-probe callability fields) must match before any probe; wrong-model and altered-metadata zero-probe tests passed
+Immutable manifest before requests: M2a-Mini-Evidence/live/model-gate-manifest.json
+Frozen corpus/prompt/schema/configuration/thresholds: unchanged from M2a
+Completed requests: 72
+Retained evidence: synthetic corpus, public model/pricing metadata, content-free callability metrics, case/repetition IDs, latency, usage, cost, rubric scores, typed failures, aggregates, hashes
+Not retained: API key, bearer header, provider definitions/glosses, user-selected text, source identity, account/team/device identifiers, email, absolute personal paths, raw payloads
+Forbidden product scope absent: M2b persistence, Keychain, SQLite/GRDB, library UI, product network wiring
+Outcome: GPT-5.4 Mini failed frozen context-fit quality thresholds; selected model null; M2b unauthorized
+Privacy pattern scan: passed

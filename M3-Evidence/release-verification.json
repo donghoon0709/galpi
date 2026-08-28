@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 2,
+  "kind": "signed-native-release-verification",
+  "runId": "m3-release-2026-08-27-final",
+  "date": "2026-08-27",
+  "bindingManifest": ".gjc/quality-gate-artifacts/m3-final-manifest.json",
+  "status": "passed",
+  "buildCommand": "xcodebuild -project Galpi.xcodeproj -scheme Galpi -configuration Release -destination platform=macOS build",
+  "buildSucceeded": true,
+  "codesignCommand": "codesign --verify --deep --strict <Release Galpi.app>",
+  "codesignVerified": true,
+  "infoPlistLint": "OK",
+  "entitlementsLint": "OK",
+  "sandboxEnabled": true,
+  "networkClientEntitlement": true,
+  "packageDependencies": [{"name": "GRDB.swift", "version": "7.11.1", "requirement": "exact"}],
+  "otherPackageDependencies": [],
+  "warningSummary": ["AppIntents metadata extraction skipped because the target has no AppIntents dependency"]
+}

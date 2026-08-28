@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "kind": "native-test-report",
+  "runId": "m4-tests-2026-08-27",
+  "bindingManifest": ".gjc/quality-gate-artifacts/m4-g001-final-manifest.json",
+  "status": "passed",
+  "command": "xcodebuild -project Galpi.xcodeproj -scheme Galpi -destination platform=macOS test",
+  "totalTestCount": 142,
+  "passedTests": 142,
+  "failedTests": 0,
+  "skippedTests": 0,
+  "m4Coverage": [
+    "capture panel dynamic accessibility value/help and visible-action key loop",
+    "status menu, Settings, and Library accessibility labels and keyboard contracts",
+    "retention, OpenAI store:false, offline/relaunch retry, key-removal, and cascade-deletion guidance",
+    "multi-display pointer selection, negative coordinates, nearest-display fallback, and visible-frame clamping",
+    "oversized width, height, and both-dimension panel fitting",
+    "closed responder-category privacy allowlist",
+    "simultaneously visible Settings and Retry keyboard cycle",
+    "exactly-once asynchronous termination state",
+    "empty-v1 SQLite reopen, foreign keys, deterministic persistence, and cleanup",
+    "offline/missing-key/recovery/storage/cancellation/concurrency-one lookup behavior",
+    "all M0-M3 normalization, panel lifecycle, transport, semantic, persistence, Library, and privacy regressions"
+  ],
+  "realNetworkUsed": false,
+  "productionKeychainMutationUsed": false
+}

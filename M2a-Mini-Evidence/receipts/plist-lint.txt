@@ -1,0 +1,3 @@
+Command: plutil -lint <Release/Galpi.app/Contents/Info.plist>
+Exit: 0
+Result: OK

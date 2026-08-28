@@ -1,0 +1,684 @@
+// !$*UTF8*$!
+{
+  archiveVersion = 1;
+  classes = {};
+  objectVersion = 56;
+  objects = {
+
+    /* Begin PBXBuildFile section */
+    A10000000000000000000001 /* main.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = A10000000000000000000011;
+    };
+    A10000000000000000000002 /* NonactivatingPanel.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = A10000000000000000000012;
+    };
+    A10000000000000000000003 /* NonactivatingPanel.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = A10000000000000000000012;
+    };
+    A10000000000000000000004 /* PanelPositionerTests.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = A10000000000000000000013;
+    };
+    A10000000000000000000005 /* CaptureModel.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = A10000000000000000000017;
+    };
+    A10000000000000000000006 /* CaptureModel.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = A10000000000000000000017;
+    };
+    A10000000000000000000007 /* CaptureModelTests.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = A10000000000000000000018;
+    };
+    A10000000000000000000008 /* DefinitionClient.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = A10000000000000000000019;
+    };
+    A10000000000000000000009 /* DefinitionClient.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = A10000000000000000000019;
+    };
+    A1000000000000000000000A /* DefinitionClientTests.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = A1000000000000000000001A;
+    };
+    A1000000000000000000000C /* ModelGate.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = A1000000000000000000001B;
+    };
+    A1000000000000000000000D /* ModelGateTests.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = A1000000000000000000001C;
+    };
+    A1000000000000000000000F /* LiveModelGate.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = A1000000000000000000001D;
+    };
+    A10000000000000000000010 /* LiveModelGateTests.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = A1000000000000000000001E;
+    };
+    B10000000000000000000002 /* SemanticGate.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = A10000000000000000000026;
+    };
+    B10000000000000000000004 /* SemanticJudgeClient.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = A10000000000000000000027;
+    };
+    B10000000000000000000005 /* SemanticGateTests.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = A10000000000000000000028;
+    };
+    B10000000000000000000006 /* SemanticJudgeClientTests.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = A10000000000000000000029;
+    };
+    B10000000000000000000008 /* SemanticLiveGate.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = A1000000000000000000002A;
+    };
+    B10000000000000000000009 /* SemanticLiveGateTests.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = A1000000000000000000002B;
+    };
+    C10000000000000000000001 /* GRDB in Frameworks */ = {
+      isa = PBXBuildFile;
+      productRef = C10000000000000000000011;
+    };
+    C10000000000000000000002 /* GRDB in Frameworks */ = {
+      isa = PBXBuildFile;
+      productRef = C10000000000000000000012;
+    };
+    C10000000000000000000020 /* PersistenceModels.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = C10000000000000000000030;
+    };
+    C10000000000000000000021 /* PersistenceModels.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = C10000000000000000000030;
+    };
+    C10000000000000000000022 /* AppDatabase.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = C10000000000000000000031;
+    };
+    C10000000000000000000023 /* AppDatabase.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = C10000000000000000000031;
+    };
+    C10000000000000000000024 /* KeychainAPIKeyStore.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = C10000000000000000000032;
+    };
+    C10000000000000000000025 /* KeychainAPIKeyStore.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = C10000000000000000000032;
+    };
+    C10000000000000000000026 /* AppDatabaseTests.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = C10000000000000000000033;
+    };
+    C10000000000000000000027 /* KeychainAPIKeyStoreTests.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = C10000000000000000000034;
+    };
+    C10000000000000000000040 /* LookupExecutor.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = C10000000000000000000050;
+    };
+    C10000000000000000000041 /* LookupExecutor.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = C10000000000000000000050;
+    };
+    C10000000000000000000042 /* LookupExecutorTests.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = C10000000000000000000051;
+    };
+    C10000000000000000000043 /* LibraryController.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = C10000000000000000000052;
+    };
+    C10000000000000000000044 /* LibraryController.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = C10000000000000000000052;
+    };
+    C10000000000000000000045 /* LibraryControllerTests.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = C10000000000000000000053;
+    };
+    /* End PBXBuildFile section */
+
+    /* Begin PBXFileReference section */
+    A10000000000000000000011 /* main.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = main.swift;
+      sourceTree = "<group>";
+    };
+    A10000000000000000000012 /* NonactivatingPanel.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = NonactivatingPanel.swift;
+      sourceTree = "<group>";
+    };
+    A10000000000000000000013 /* PanelPositionerTests.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = PanelPositionerTests.swift;
+      sourceTree = "<group>";
+    };
+    A10000000000000000000014 /* Info.plist */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = text.plist.xml;
+      path = Info.plist;
+      sourceTree = "<group>";
+    };
+    A10000000000000000000015 /* Galpi.app */ = {
+      isa = PBXFileReference;
+      explicitFileType = wrapper.application;
+      includeInIndex = 0;
+      path = Galpi.app;
+      sourceTree = BUILT_PRODUCTS_DIR;
+    };
+    A10000000000000000000016 /* GalpiTests.xctest */ = {
+      isa = PBXFileReference;
+      explicitFileType = wrapper.cfbundle;
+      includeInIndex = 0;
+      path = GalpiTests.xctest;
+      sourceTree = BUILT_PRODUCTS_DIR;
+    };
+    A10000000000000000000017 /* CaptureModel.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = CaptureModel.swift;
+      sourceTree = "<group>";
+    };
+    A10000000000000000000018 /* CaptureModelTests.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = CaptureModelTests.swift;
+      sourceTree = "<group>";
+    };
+    A10000000000000000000019 /* DefinitionClient.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = DefinitionClient.swift;
+      sourceTree = "<group>";
+    };
+    A1000000000000000000001A /* DefinitionClientTests.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = DefinitionClientTests.swift;
+      sourceTree = "<group>";
+    };
+    A1000000000000000000001B /* ModelGate.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = ModelGate.swift;
+      sourceTree = "<group>";
+    };
+    A1000000000000000000001C /* ModelGateTests.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = ModelGateTests.swift;
+      sourceTree = "<group>";
+    };
+    A1000000000000000000001D /* LiveModelGate.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = LiveModelGate.swift;
+      sourceTree = "<group>";
+    };
+    A1000000000000000000001E /* LiveModelGateTests.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = LiveModelGateTests.swift;
+      sourceTree = "<group>";
+    };
+    A10000000000000000000026 /* SemanticGate.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = SemanticGate.swift;
+      sourceTree = "<group>";
+    };
+    A10000000000000000000027 /* SemanticJudgeClient.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = SemanticJudgeClient.swift;
+      sourceTree = "<group>";
+    };
+    A10000000000000000000028 /* SemanticGateTests.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = SemanticGateTests.swift;
+      sourceTree = "<group>";
+    };
+    A10000000000000000000029 /* SemanticJudgeClientTests.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = SemanticJudgeClientTests.swift;
+      sourceTree = "<group>";
+    };
+    A1000000000000000000002A /* SemanticLiveGate.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = SemanticLiveGate.swift;
+      sourceTree = "<group>";
+    };
+    A1000000000000000000002B /* SemanticLiveGateTests.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = SemanticLiveGateTests.swift;
+      sourceTree = "<group>";
+    };
+    C10000000000000000000030 /* PersistenceModels.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = PersistenceModels.swift;
+      sourceTree = "<group>";
+    };
+    C10000000000000000000031 /* AppDatabase.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = AppDatabase.swift;
+      sourceTree = "<group>";
+    };
+    C10000000000000000000032 /* KeychainAPIKeyStore.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = KeychainAPIKeyStore.swift;
+      sourceTree = "<group>";
+    };
+    C10000000000000000000033 /* AppDatabaseTests.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = AppDatabaseTests.swift;
+      sourceTree = "<group>";
+    };
+    C10000000000000000000034 /* KeychainAPIKeyStoreTests.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = KeychainAPIKeyStoreTests.swift;
+      sourceTree = "<group>";
+    };
+    C10000000000000000000035 /* Galpi.entitlements */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = text.plist.entitlements;
+      path = Galpi.entitlements;
+      sourceTree = "<group>";
+    };
+    C10000000000000000000050 /* LookupExecutor.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = LookupExecutor.swift;
+      sourceTree = "<group>";
+    };
+    C10000000000000000000051 /* LookupExecutorTests.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = LookupExecutorTests.swift;
+      sourceTree = "<group>";
+    };
+    C10000000000000000000052 /* LibraryController.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = LibraryController.swift;
+      sourceTree = "<group>";
+    };
+    C10000000000000000000053 /* LibraryControllerTests.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = LibraryControllerTests.swift;
+      sourceTree = "<group>";
+    };
+    /* End PBXFileReference section */
+
+    /* Begin PBXFrameworksBuildPhase section */
+    A10000000000000000000021 /* Frameworks */ = {
+      isa = PBXFrameworksBuildPhase;
+      buildActionMask = 2147483647;
+      files = (C10000000000000000000001 /* GRDB in Frameworks */);
+      runOnlyForDeploymentPostprocessing = 0;
+    };
+    A10000000000000000000022 /* Frameworks */ = {
+      isa = PBXFrameworksBuildPhase;
+      buildActionMask = 2147483647;
+      files = (C10000000000000000000002 /* GRDB in Frameworks */);
+      runOnlyForDeploymentPostprocessing = 0;
+    };
+    /* End PBXFrameworksBuildPhase section */
+
+    /* Begin PBXGroup section */
+    A10000000000000000000031 = {
+      isa = PBXGroup;
+      children = (
+        A10000000000000000000032 /* Galpi */, A10000000000000000000033 /* GalpiTests */,
+        A10000000000000000000034 /* Products */
+      );
+      sourceTree = "<group>";
+    };
+    A10000000000000000000032 /* Galpi */ = {
+      isa = PBXGroup;
+      children = (
+        A10000000000000000000011 /* main.swift */,
+        A10000000000000000000017 /* CaptureModel.swift */,
+        A10000000000000000000019 /* DefinitionClient.swift */,
+        A1000000000000000000001B /* ModelGate.swift */,
+        A1000000000000000000001D /* LiveModelGate.swift */,
+        A10000000000000000000026 /* SemanticGate.swift */,
+        A10000000000000000000027 /* SemanticJudgeClient.swift */,
+        A1000000000000000000002A /* SemanticLiveGate.swift */,
+        C10000000000000000000030 /* PersistenceModels.swift */,
+        C10000000000000000000031 /* AppDatabase.swift */,
+        C10000000000000000000032 /* KeychainAPIKeyStore.swift */,
+        C10000000000000000000050 /* LookupExecutor.swift */,
+        C10000000000000000000052 /* LibraryController.swift */,
+        A10000000000000000000012 /* NonactivatingPanel.swift */,
+        A10000000000000000000014 /* Info.plist */,
+        C10000000000000000000035 /* Galpi.entitlements */
+      );
+      path = Galpi;
+      sourceTree = "<group>";
+    };
+    A10000000000000000000033 /* GalpiTests */ = {
+      isa = PBXGroup;
+      children = (
+        A10000000000000000000013 /* PanelPositionerTests.swift */,
+        A10000000000000000000018 /* CaptureModelTests.swift */,
+        A1000000000000000000001A /* DefinitionClientTests.swift */,
+        A1000000000000000000001C /* ModelGateTests.swift */,
+        A1000000000000000000001E /* LiveModelGateTests.swift */,
+        A10000000000000000000028 /* SemanticGateTests.swift */,
+        A10000000000000000000029 /* SemanticJudgeClientTests.swift */,
+        A1000000000000000000002B /* SemanticLiveGateTests.swift */,
+        C10000000000000000000033 /* AppDatabaseTests.swift */,
+        C10000000000000000000034 /* KeychainAPIKeyStoreTests.swift */,
+        C10000000000000000000051 /* LookupExecutorTests.swift */,
+        C10000000000000000000053 /* LibraryControllerTests.swift */
+      );
+      path = GalpiTests;
+      sourceTree = "<group>";
+    };
+    A10000000000000000000034 /* Products */ = {
+      isa = PBXGroup;
+      children = (
+        A10000000000000000000015 /* Galpi.app */, A10000000000000000000016 /* GalpiTests.xctest */
+      );
+      name = Products;
+      sourceTree = "<group>";
+    };
+    /* End PBXGroup section */
+
+    /* Begin PBXNativeTarget section */
+    A10000000000000000000041 /* Galpi */ = {
+      isa = PBXNativeTarget;
+      buildConfigurationList = A10000000000000000000051 /* Build configuration list for PBXNativeTarget "Galpi" */;
+      buildPhases = (
+        A10000000000000000000061 /* Sources */, A10000000000000000000021 /* Frameworks */
+      );
+      buildRules = ();
+      dependencies = ();
+      name = Galpi;
+      packageProductDependencies = (C10000000000000000000011 /* GRDB */);
+      productName = Galpi;
+      productReference = A10000000000000000000015 /* Galpi.app */;
+      productType = "com.apple.product-type.application";
+    };
+    A10000000000000000000042 /* GalpiTests */ = {
+      isa = PBXNativeTarget;
+      buildConfigurationList = A10000000000000000000052 /* Build configuration list for PBXNativeTarget "GalpiTests" */;
+      buildPhases = (
+        A10000000000000000000062 /* Sources */, A10000000000000000000022 /* Frameworks */
+      );
+      buildRules = ();
+      dependencies = (A10000000000000000000071 /* PBXTargetDependency */);
+      name = GalpiTests;
+      packageProductDependencies = (C10000000000000000000012 /* GRDB */);
+      productName = GalpiTests;
+      productReference = A10000000000000000000016 /* GalpiTests.xctest */;
+      productType = "com.apple.product-type.bundle.unit-test";
+    };
+    /* End PBXNativeTarget section */
+
+    /* Begin PBXProject section */
+    A10000000000000000000081 /* Project object */ = {
+      isa = PBXProject;
+      attributes = {
+        LastSwiftUpdateCheck = 1600;
+        LastUpgradeCheck = 1600;
+        TargetAttributes = {
+          A10000000000000000000041 = { CreatedOnToolsVersion = 16.0; };
+          A10000000000000000000042 = {
+            CreatedOnToolsVersion = 16.0;
+            TestTargetID = A10000000000000000000041;
+          };
+        };
+      };
+      buildConfigurationList = A10000000000000000000053 /* Build configuration list for PBXProject "Galpi" */;
+      compatibilityVersion = "Xcode 14.0";
+      developmentRegion = en;
+      hasScannedForEncodings = 0;
+      knownRegions = (en, Base);
+      mainGroup = A10000000000000000000031;
+      packageReferences = (C10000000000000000000010 /* XCRemoteSwiftPackageReference "GRDB.swift" */);
+      productRefGroup = A10000000000000000000034 /* Products */;
+      projectDirPath = "";
+      projectRoot = "";
+      targets = (A10000000000000000000041 /* Galpi */, A10000000000000000000042 /* GalpiTests */);
+    };
+    /* End PBXProject section */
+
+    /* Begin PBXSourcesBuildPhase section */
+    A10000000000000000000061 /* Sources */ = {
+      isa = PBXSourcesBuildPhase;
+      buildActionMask = 2147483647;
+      files = (
+        A10000000000000000000001 /* main.swift in Sources */,
+        A10000000000000000000005 /* CaptureModel.swift in Sources */,
+        A10000000000000000000008 /* DefinitionClient.swift in Sources */,
+        C10000000000000000000020 /* PersistenceModels.swift in Sources */,
+        C10000000000000000000022 /* AppDatabase.swift in Sources */,
+        C10000000000000000000024 /* KeychainAPIKeyStore.swift in Sources */,
+        C10000000000000000000040 /* LookupExecutor.swift in Sources */,
+        C10000000000000000000043 /* LibraryController.swift in Sources */,
+        A10000000000000000000002 /* NonactivatingPanel.swift in Sources */
+      );
+      runOnlyForDeploymentPostprocessing = 0;
+    };
+    A10000000000000000000062 /* Sources */ = {
+      isa = PBXSourcesBuildPhase;
+      buildActionMask = 2147483647;
+      files = (
+        A10000000000000000000006 /* CaptureModel.swift in Sources */,
+        A10000000000000000000009 /* DefinitionClient.swift in Sources */,
+        A1000000000000000000000C /* ModelGate.swift in Sources */,
+        A1000000000000000000000F /* LiveModelGate.swift in Sources */,
+        B10000000000000000000002 /* SemanticGate.swift in Sources */,
+        B10000000000000000000004 /* SemanticJudgeClient.swift in Sources */,
+        B10000000000000000000008 /* SemanticLiveGate.swift in Sources */,
+        C10000000000000000000021 /* PersistenceModels.swift in Sources */,
+        C10000000000000000000023 /* AppDatabase.swift in Sources */,
+        C10000000000000000000025 /* KeychainAPIKeyStore.swift in Sources */,
+        C10000000000000000000041 /* LookupExecutor.swift in Sources */,
+        C10000000000000000000044 /* LibraryController.swift in Sources */,
+        A10000000000000000000003 /* NonactivatingPanel.swift in Sources */,
+        A10000000000000000000004 /* PanelPositionerTests.swift in Sources */,
+        A10000000000000000000007 /* CaptureModelTests.swift in Sources */,
+        A1000000000000000000000A /* DefinitionClientTests.swift in Sources */,
+        A1000000000000000000000D /* ModelGateTests.swift in Sources */,
+        A10000000000000000000010 /* LiveModelGateTests.swift in Sources */,
+        B10000000000000000000005 /* SemanticGateTests.swift in Sources */,
+        B10000000000000000000006 /* SemanticJudgeClientTests.swift in Sources */,
+        B10000000000000000000009 /* SemanticLiveGateTests.swift in Sources */,
+        C10000000000000000000026 /* AppDatabaseTests.swift in Sources */,
+        C10000000000000000000027 /* KeychainAPIKeyStoreTests.swift in Sources */,
+        C10000000000000000000042 /* LookupExecutorTests.swift in Sources */,
+        C10000000000000000000045 /* LibraryControllerTests.swift in Sources */
+      );
+      runOnlyForDeploymentPostprocessing = 0;
+    };
+    /* End PBXSourcesBuildPhase section */
+
+    /* Begin PBXTargetDependency section */
+    A10000000000000000000071 /* PBXTargetDependency */ = {
+      isa = PBXTargetDependency;
+      target = A10000000000000000000041 /* Galpi */;
+      targetProxy = A10000000000000000000072;
+    };
+    /* End PBXTargetDependency section */
+
+    /* Begin PBXContainerItemProxy section */
+    A10000000000000000000072 /* PBXContainerItemProxy */ = {
+      isa = PBXContainerItemProxy;
+      containerPortal = A10000000000000000000081 /* Project object */;
+      proxyType = 1;
+      remoteGlobalIDString = A10000000000000000000041;
+      remoteInfo = Galpi;
+    };
+    /* End PBXContainerItemProxy section */
+
+    /* Begin XCBuildConfiguration section */
+    A10000000000000000000091 /* Debug */ = {
+      isa = XCBuildConfiguration;
+      buildSettings = {
+        CLANG_ENABLE_MODULES = YES;
+        MACOSX_DEPLOYMENT_TARGET = 14.0;
+        SDKROOT = macosx;
+        SWIFT_VERSION = 6.0;
+      };
+      name = Debug;
+    };
+    A10000000000000000000092 /* Release */ = {
+      isa = XCBuildConfiguration;
+      buildSettings = {
+        CLANG_ENABLE_MODULES = YES;
+        MACOSX_DEPLOYMENT_TARGET = 14.0;
+        SDKROOT = macosx;
+        SWIFT_COMPILATION_MODE = wholemodule;
+        SWIFT_VERSION = 6.0;
+      };
+      name = Release;
+    };
+    A10000000000000000000093 /* Debug */ = {
+      isa = XCBuildConfiguration;
+      buildSettings = {
+        CODE_SIGN_ENTITLEMENTS = Galpi/Galpi.entitlements;
+        CODE_SIGN_STYLE = Automatic;
+        CODE_SIGN_IDENTITY = "-";
+        DEVELOPMENT_TEAM = "";
+        GENERATE_INFOPLIST_FILE = NO;
+        INFOPLIST_FILE = Galpi/Info.plist;
+        MACOSX_DEPLOYMENT_TARGET = 14.0;
+        PRODUCT_BUNDLE_IDENTIFIER = com.galpi.app;
+        PRODUCT_NAME = "$(TARGET_NAME)";
+        SWIFT_VERSION = 6.0;
+      };
+      name = Debug;
+    };
+    A10000000000000000000094 /* Release */ = {
+      isa = XCBuildConfiguration;
+      buildSettings = {
+        CODE_SIGN_ENTITLEMENTS = Galpi/Galpi.entitlements;
+        CODE_SIGN_STYLE = Automatic;
+        CODE_SIGN_IDENTITY = "Apple Development";
+        DEVELOPMENT_TEAM = T3V2F67K5X;
+        GENERATE_INFOPLIST_FILE = NO;
+        INFOPLIST_FILE = Galpi/Info.plist;
+        MACOSX_DEPLOYMENT_TARGET = 14.0;
+        PRODUCT_BUNDLE_IDENTIFIER = com.galpi.app;
+        PRODUCT_NAME = "$(TARGET_NAME)";
+        SWIFT_COMPILATION_MODE = wholemodule;
+        SWIFT_VERSION = 6.0;
+      };
+      name = Release;
+    };
+    A10000000000000000000095 /* Debug */ = {
+      isa = XCBuildConfiguration;
+      buildSettings = {
+        BUNDLE_LOADER = "$(TEST_HOST)";
+        CODE_SIGN_STYLE = Automatic;
+        GENERATE_INFOPLIST_FILE = YES;
+        MACOSX_DEPLOYMENT_TARGET = 14.0;
+        PRODUCT_BUNDLE_IDENTIFIER = com.galpi.app.tests;
+        PRODUCT_MODULE_NAME = GalpiTests;
+        PRODUCT_NAME = "$(TARGET_NAME)";
+        SWIFT_VERSION = 6.0;
+        TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Galpi.app/Contents/MacOS/Galpi";
+      };
+      name = Debug;
+    };
+    A10000000000000000000096 /* Release */ = {
+      isa = XCBuildConfiguration;
+      buildSettings = {
+        BUNDLE_LOADER = "$(TEST_HOST)";
+        CODE_SIGN_STYLE = Automatic;
+        GENERATE_INFOPLIST_FILE = YES;
+        MACOSX_DEPLOYMENT_TARGET = 14.0;
+        PRODUCT_BUNDLE_IDENTIFIER = com.galpi.app.tests;
+        PRODUCT_MODULE_NAME = GalpiTests;
+        PRODUCT_NAME = "$(TARGET_NAME)";
+        SWIFT_COMPILATION_MODE = wholemodule;
+        SWIFT_VERSION = 6.0;
+        TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Galpi.app/Contents/MacOS/Galpi";
+      };
+      name = Release;
+    };
+    /* End XCBuildConfiguration section */
+
+    /* Begin XCRemoteSwiftPackageReference section */
+    C10000000000000000000010 /* XCRemoteSwiftPackageReference "GRDB.swift" */ = {
+      isa = XCRemoteSwiftPackageReference;
+      repositoryURL = "https://github.com/groue/GRDB.swift.git";
+      requirement = {
+        kind = exactVersion;
+        version = 7.11.1;
+      };
+    };
+    /* End XCRemoteSwiftPackageReference section */
+
+    /* Begin XCSwiftPackageProductDependency section */
+    C10000000000000000000011 /* GRDB */ = {
+      isa = XCSwiftPackageProductDependency;
+      package = C10000000000000000000010 /* XCRemoteSwiftPackageReference "GRDB.swift" */;
+      productName = GRDB;
+    };
+    C10000000000000000000012 /* GRDB */ = {
+      isa = XCSwiftPackageProductDependency;
+      package = C10000000000000000000010 /* XCRemoteSwiftPackageReference "GRDB.swift" */;
+      productName = GRDB;
+    };
+    /* End XCSwiftPackageProductDependency section */
+
+    /* Begin XCConfigurationList section */
+    A10000000000000000000051 /* Build configuration list for PBXNativeTarget "Galpi" */ = {
+      isa = XCConfigurationList;
+      buildConfigurations = (
+        A10000000000000000000093 /* Debug */, A10000000000000000000094 /* Release */
+      );
+      defaultConfigurationIsVisible = 0;
+      defaultConfigurationName = Release;
+    };
+    A10000000000000000000052 /* Build configuration list for PBXNativeTarget "GalpiTests" */ = {
+      isa = XCConfigurationList;
+      buildConfigurations = (
+        A10000000000000000000095 /* Debug */, A10000000000000000000096 /* Release */
+      );
+      defaultConfigurationIsVisible = 0;
+      defaultConfigurationName = Release;
+    };
+    A10000000000000000000053 /* Build configuration list for PBXProject "Galpi" */ = {
+      isa = XCConfigurationList;
+      buildConfigurations = (
+        A10000000000000000000091 /* Debug */, A10000000000000000000092 /* Release */
+      );
+      defaultConfigurationIsVisible = 0;
+      defaultConfigurationName = Release;
+    };
+    /* End XCConfigurationList section */
+  };
+  rootObject = A10000000000000000000081;
+}

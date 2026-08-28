@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "kind": "package-boundary-report",
+  "date": "2026-08-27",
+  "status": "passed",
+  "confirmedBoundary": {
+    "unconfirmedContent": "memory-only",
+    "confirmedSentenceAndSurface": "sandbox SQLite until unresolved Encounter deletion or completed Entry cascade",
+    "validatedDefinition": "Entry row after atomic completion only",
+    "apiKey": "Security generic-password Keychain item and transient request memory only",
+    "partialOrRawProviderData": "discarded"
+  },
+  "evidenceAndLogs": {
+    "selectedText": false,
+    "selectedSurface": false,
+    "providerOutput": false,
+    "rawPayload": false,
+    "credential": false,
+    "sourceApplication": false,
+    "pasteboardTypeIdentifier": false,
+    "windowTitle": false,
+    "url": false,
+    "personalPath": false,
+    "permitted": ["scalar and token counts", "opaque state", "attempt count", "timing", "sanitized error category"]
+  },
+  "prohibitedCapabilityScan": {
+    "accessibilityAPI": false,
+    "inputMonitoring": false,
+    "screenRecording": false,
+    "eventTap": false,
+    "globalKeyboardMonitor": false,
+    "generalClipboardSimulation": false,
+    "sourceScraping": false,
+    "sourceActivationOnCapture": false,
+    "alternateProvider": false,
+    "providerRegistryInRuntime": false,
+    "libraryM3": false,
+    "exportOrSync": false
+  },
+  "dependencyBoundary": {
+    "remotePackageCount": 1,
+    "package": "GRDB.swift",
+    "version": "7.11.1"
+  },
+  "runtimeAutomation": "M2b-Evidence/app-automation-transcript.json",
+  "contentFree": true
+}

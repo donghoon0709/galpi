@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "kind": "package-release-report",
+  "date": "2026-08-27",
+  "status": "passed",
+  "checks": [
+    {
+      "name": "package-resolution",
+      "command": "xcodebuild -resolvePackageDependencies -project Galpi.xcodeproj -scheme Galpi",
+      "status": "passed",
+      "result": "GRDB.swift 7.11.1 resolved from the sole remote package reference"
+    },
+    {
+      "name": "release-build",
+      "command": "xcodebuild -project Galpi.xcodeproj -scheme Galpi -configuration Release -destination platform=macOS build",
+      "status": "passed"
+    },
+    {
+      "name": "strict-signature",
+      "command": "codesign --verify --deep --strict <Release Galpi.app>",
+      "status": "passed"
+    },
+    {
+      "name": "plist",
+      "command": "plutil -lint Galpi/Info.plist Galpi/Galpi.entitlements",
+      "status": "passed"
+    }
+  ],
+  "entitlements": {
+    "appSandbox": true,
+    "networkClient": true,
+    "accessibility": false,
+    "inputMonitoring": false,
+    "screenRecording": false
+  },
+  "runtimeProductSources": [
+    "main.swift",
+    "CaptureModel.swift",
+    "DefinitionClient.swift",
+    "PersistenceModels.swift",
+    "AppDatabase.swift",
+    "KeychainAPIKeyStore.swift",
+    "LookupExecutor.swift",
+    "PendingLookupsController.swift",
+    "NonactivatingPanel.swift"
+  ],
+  "benchmarkAndJudgeSourcesExcludedFromRuntimeTarget": true,
+  "contentFree": true
+}

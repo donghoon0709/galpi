@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "approvalDate": "2026-08-27",
+  "approvalType": "explicit_user_m2b_authorization",
+  "userDirective": "m2b 진행하자.",
+  "modelID": "gpt-5.6-luna",
+  "benchmarkManifestHash": "2a47cde21f43b13619212b6c53e6bde57216259fe34326dc030aac1b34ddf4d3",
+  "meanRequestCostUSD": 0.00010195833333333335,
+  "p95RequestCostUSD": 0.0001268,
+  "costEvidence": "Semantic-Gate-Evidence/final/outcome.json",
+  "authorizedMilestone": "M2b durable lookup vertical slice",
+  "authorized": true,
+  "notAuthorized": ["M3 library vertical slice", "M4 release hardening", "provider expansion"]
+}

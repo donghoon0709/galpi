@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "kind": "native-lifecycle-report",
+  "runId": "m4-termination-2026-08-27",
+  "bindingManifest": ".gjc/quality-gate-artifacts/m4-g001-final-manifest.json",
+  "status": "passed",
+  "signedNativeCases": [
+    {"case":"open synthetic panel","result":"passed","boundedExit":true,"panelCreateCount":1,"panelDismissCount":1,"monitorCreateCount":1,"monitorRemoveCount":1,"responderCategories":["captureSelection"]},
+    {"case":"database initialization failure","result":"passed","boundedExit":true,"executorCreated":false,"databaseRestored":true},
+    {"case":"idle and clean relaunch","result":"passed","boundedExit":true,"finalWindowCount":0,"finalEntryCount":0,"finalEncounterCount":0}
+  ],
+  "deterministicPackageCases": [
+    {"case":"termination reply state","result":"passed","invariant":"begin and completion are accepted exactly once"},
+    {"case":"running lookup shutdown","result":"passed","invariant":"request cancellation is control flow and creates no false provider failure"},
+    {"case":"scheduled or known-offline work shutdown","result":"passed","invariant":"recovery task is cancelled without attempt consumption or timer spin"},
+    {"case":"storage failure shutdown","result":"passed","invariant":"bounded recovery ownership is cancelled and durable state is preserved"}
+  ],
+  "evidenceFlushObserved":true,
+  "contentFree":true,
+  "realNetworkUsed":false,
+  "productionKeychainMutationUsed":false
+}

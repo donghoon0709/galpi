@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "kind": "signed-release-host-matrix",
+  "runId": "m4-host-matrix-2026-08-27",
+  "bindingManifest": ".gjc/quality-gate-artifacts/m4-g001-final-manifest.json",
+  "supportedHosts": ["Safari", "Preview", "Notes"],
+  "deferredHosts": ["Apple Books"],
+  "routes": [
+    {"host": "Safari", "servicesMenu": "passed", "assignedShortcut": "passed", "panelKeyNonMain": true, "contentRecorded": false},
+    {"host": "Preview", "servicesMenu": "passed", "assignedShortcut": "passed", "panelKeyNonMain": true, "contentRecorded": false},
+    {"host": "Notes", "servicesMenu": "passed", "assignedShortcut": "passed", "panelKeyNonMain": true, "contentRecorded": false}
+  ],
+  "controls": {
+    "syntheticContentOnly": true,
+    "notesFixtureDeleted": true,
+    "previewFixtureTemporary": true,
+    "safariFixtureLocal": true,
+    "accessibilityUsedOnlyForSignedQA": true,
+    "productionPrivilegedCaptureUsed": false
+  },
+  "result": "passed"
+}

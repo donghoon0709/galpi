@@ -1,0 +1,8 @@
+$ codesign --verify --deep --strict --verbose=2 /Applications/Galpi.app
+exit=0
+
+STDOUT
+
+STDERR
+/Applications/Galpi.app: valid on disk
+/Applications/Galpi.app: satisfies its Designated Requirement

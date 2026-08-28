@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "kind": "algorithm-boundary-report",
+  "runId": "m4-recovery-display-2026-08-27",
+  "bindingManifest": ".gjc/quality-gate-artifacts/m4-g001-final-manifest.json",
+  "status": "passed",
+  "networkRecovery": [
+    {"case":"known offline","surface":"synthetic package test","result":"passed","invariant":"no Keychain read, attempt claim, provider request, or timer spin"},
+    {"case":"missing key","surface":"signed app plus package test","result":"passed","invariant":"manual-only failure, zero provider requests"},
+    {"case":"offline to online","surface":"synthetic package test","result":"passed","invariant":"one executor resumes durable due work"},
+    {"case":"wake and clock change","surface":"synthetic package test","result":"passed","invariant":"coalesced bounded recovery"},
+    {"case":"signed relaunch abandoned claim","surface":"signed app","result":"passed","invariant":"repaired without UI activation or provider request"},
+    {"case":"active fifth claim","surface":"synthetic package test","result":"passed","invariant":"startup recovery does not exhaust live work"},
+    {"case":"permanent completion storage failure","surface":"synthetic package test","result":"passed","invariant":"durable failure or reservation; no second provider request"}
+  ],
+  "displayGeometry": [
+    {"case":"primary visible frame","surface":"package test","result":"passed"},
+    {"case":"secondary display","surface":"package test","result":"passed"},
+    {"case":"negative coordinates","surface":"package test","result":"passed"},
+    {"case":"pointer outside all frames","surface":"package test","result":"passed","invariant":"nearest display selected"},
+    {"case":"edge and oversized panel clamp","surface":"package test","result":"passed"},
+    {"case":"screen arrangement change between invocations","surface":"package test","result":"passed","invariant":"current NSScreen visible frames are recomputed per show"}
+  ],
+  "physicalMultiDisplayClaimed": false,
+  "reason":"The exact signed run exercised the attached display; synthetic geometry tests cover multi-display and negative-coordinate boundaries without fabricating attached hardware."
+}

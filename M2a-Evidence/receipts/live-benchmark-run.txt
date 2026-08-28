@@ -1,0 +1,13 @@
+Command: source ignored mode-600 .env; MODEL_GATE_OUTPUT_DIRECTORY=./M2a-Evidence/live-v2 /tmp/galpi-m2a-benchmark
+Observed exit: 0
+Manifest persisted before benchmark requests: M2a-Evidence/live-v2/model-gate-manifest.json
+Manifest hash: d340801f483ae8dd8a3d01eb10b8267692adff95b6c2de7d09720c986542b661
+Corpus hash: 890e13ca42657c1bacf5c1812d24627be5b093f42458d7bd8385c592277c2452
+Callable exact candidates: gpt-5.6-luna; gpt-5.4-nano-2026-03-17
+Excluded after strict streamed probe: gpt-5-nano-2025-08-07 (typed reason: incomplete)
+Completed benchmark requests: 144 (72 per callable model)
+Luna typed failures: 0
+GPT-5.4 nano typed failures: 2 selected-surface echo failures
+Selected model: none
+Content-free outputs: M2a-Evidence/live-v2/model-gate-report.json; M2a-Evidence/live-v2/analysis.json; M2a-Evidence/receipts/live-v2-benchmark-summary.json
+Credential/provider output retained: no

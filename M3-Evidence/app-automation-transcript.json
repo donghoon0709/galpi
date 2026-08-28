@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 2,
+  "runId": "m3-signed-native-2026-08-27-final",
+  "date": "2026-08-27",
+  "build": "signed Release M3 local-library vertical slice",
+  "bindingManifest": ".gjc/quality-gate-artifacts/m3-final-manifest.json",
+  "contentFree": true,
+  "screenshot": {
+    "path": "M3-Evidence/library-empty.png",
+    "windowOnlyCrop": true,
+    "nonUniform": true,
+    "containsUserContent": false
+  },
+  "steps": [
+    {
+      "id": "launch-menu-window",
+      "action": "Launch the signed Release app, open the status menu, and select Library.",
+      "result": "passed",
+      "observed": {"processRunning": true, "statusItemName": "Galpi", "libraryItemPresent": true, "obsoletePendingLookupsItemPresent": false, "windowCount": 1, "windowTitle": "Library"}
+    },
+    {
+      "id": "accessibility-surface",
+      "action": "Inspect the Library accessibility tree without recording stored content.",
+      "result": "passed",
+      "observed": {"modeControl": true, "searchField": true, "statusFilter": true, "itemTable": true, "entryEditor": true, "historyTable": true, "completedEncounterDetail": true, "unresolvedEncounterDetail": true, "retry": true, "retryAll": true, "delete": true, "settings": true, "refresh": true}
+    },
+    {
+      "id": "entry-list-history-detail",
+      "action": "Load one synthetic Entry, select it, select its newest linked Encounter, and inspect detail structure.",
+      "result": "passed",
+      "observed": {"entryRows": 1, "linkedEncounterRows": 2, "completedDetailCharacterCount": 209, "saveEnabledAfterSelection": true, "deleteEnabledAfterSelection": true}
+    },
+    {
+      "id": "entry-search-edit",
+      "action": "Exercise matching/nonmatching local search, then edit synthetic local fields without invoking OpenAI.",
+      "result": "passed",
+      "observed": {"nonmatchingRowCount": 0, "matchingRowCount": 1, "surfaceLengthAfterSave": 14, "koreanGlossLengthAfterSave": 9, "englishDefinitionLengthAfterSave": 27, "phraseFlagAfterSave": true, "entryIdPreserved": true, "networkRequestObserved": false}
+    },
+    {
+      "id": "unresolved-filters-detail",
+      "action": "Exercise All, Failed, and Pending filters and select the failed detail.",
+      "result": "passed",
+      "observed": {"allRows": 2, "failedRows": 1, "pendingRows": 1, "failedDetailCharacterCount": 255, "individualRetryEnabledForFailed": true, "individualRetryDisabledForPending": true, "retryAllAvailableWhileFailuresExist": true}
+    },
+    {
+      "id": "retry-and-retry-all",
+      "action": "Invoke individual failed-only Retry and actor-owned Retry All Failed with no saved API key.",
+      "result": "passed",
+      "observed": {"status": "failed", "attemptCount": 0, "generationAfterIndividual": 1, "generationAfterRetryAll": 2, "failureKind": "missing_key", "providerRequestObserved": false, "windowStayedOpen": true}
+    },
+    {
+      "id": "delete-confirmations",
+      "action": "Cancel unresolved deletion; verify Entry linked-count confirmation, cancel once, then confirm cascade deletion.",
+      "result": "passed",
+      "observed": {"unresolvedCancelPreservedRow": true, "linkedEncounterCountDisclosed": 2, "entryCancelPreservedRows": true, "confirmedEntryCount": 0, "confirmedLinkedEncounterCount": 0}
+    },
+    {
+      "id": "settings-path",
+      "action": "Open API-key Settings from Library without changing Keychain.",
+      "result": "passed",
+      "observed": {"secureFieldCount": 1, "displayedCharacterCount": 0, "buttons": ["Save", "Cancel"], "existingSecretDisplayed": false}
+    },
+    {
+      "id": "real-producer-live-refresh",
+      "action": "While an Entry draft was dirty, invoke the real NSServices provider with synthetic input and confirm it; observe committed Encounter and failure state callbacks.",
+      "result": "passed",
+      "observed": {"nsPerformService": true, "persistedStatus": "failed", "attemptCount": 0, "failureKind": "missing_key", "entryRowsStayedVisible": 1, "dirtyDraftCharacterCountPreserved": 29, "libraryWindowCount": 1, "providerRequestObserved": false}
+    },
+    {
+      "id": "closed-window-nonreopening",
+      "action": "Close Library, run and dismiss another synthetic confirmed lookup, and observe background state changes.",
+      "result": "passed",
+      "observed": {"libraryWindowReopened": false, "capturePanelDismissed": true, "remainingWindowCount": 0}
+    },
+    {
+      "id": "reopen-reconstruct",
+      "action": "Reopen Library after the closed-window mutations and reconstruct from SQLite.",
+      "result": "passed",
+      "observed": {"entryRows": 1, "unresolvedRows": 4, "windowCount": 1, "manualRefreshRequired": false}
+    },
+    {
+      "id": "persistence-unavailable",
+      "action": "Launch against a safely isolated unavailable database path, open Library, then restore the empty database.",
+      "result": "passed",
+      "observed": {"libraryRoutePresent": true, "rowCount": 0, "sanitizedStatus": "Unable to load the local library", "rawStorageErrorDisplayed": false, "databaseRestored": true}
+    },
+    {
+      "id": "cleanup",
+      "action": "Delete all synthetic QA rows, verify SQLite integrity, and quit through graceful application termination.",
+      "result": "passed",
+      "observed": {"sqliteQuickCheck": "ok", "entryCount": 0, "encounterCount": 0, "processExited": true}
+    }
+  ],
+  "finalDeltaRun": {
+    "runId": "m3-signed-native-2026-08-27-reopen-boundary",
+    "scope": "Exact final signed executable delta verification after the non-preserving reload repair.",
+    "result": "passed",
+    "observed": {
+      "dirtyDraftCharacterCountBeforeClose": 29,
+      "editorCharacterCountImmediatelyAfterReopen": 0,
+      "databaseSurfaceCharacterCountAfterSelection": 18,
+      "entryRowsAfterReopen": 1,
+      "staleDraftResurrected": false,
+      "sqliteQuickCheck": "ok",
+      "finalEntryCount": 0,
+      "finalEncounterCount": 0,
+      "processExited": true,
+      "screenshotRecapturedFromExactFinalExecutable": true
+    }
+  },
+  "privacy": {
+    "selectedTextRecorded": false,
+    "normalizedSentenceRecorded": false,
+    "selectedSurfaceRecorded": false,
+    "entryContentRecorded": false,
+    "providerOutputRecorded": false,
+    "credentialRecorded": false,
+    "sourceApplicationRecorded": false,
+    "pasteboardMetadataRecorded": false,
+    "windowTitleOrUrlRecorded": false,
+    "personalPathRecorded": false
+  }
+}

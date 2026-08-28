@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "kind": "privacy-boundary-report",
+  "date": "2026-08-27",
+  "status": "passed",
+  "evidenceScan": {
+    "scope": "Semantic-Gate-Evidence",
+    "prohibitedMarkers": [
+      "personal absolute paths",
+      "email/account/team/device identifiers",
+      "Bearer credentials or API keys",
+      "candidate Korean or English definitions",
+      "sentences or selected surfaces",
+      "judge prompts or raw provider payloads"
+    ],
+    "matches": 0
+  },
+  "sourceScope": {
+    "accessibility": false,
+    "inputMonitoring": false,
+    "screenRecording": false,
+    "eventTaps": false,
+    "globalKeyboardMonitoring": false,
+    "clipboardSimulation": false,
+    "sourceScraping": false,
+    "sourceActivation": false,
+    "sqliteOrGRDB": false,
+    "keychain": false,
+    "libraryUI": false,
+    "productNetworkWiring": false,
+    "m2bPersistence": false
+  },
+  "allowedExistingBehavior": "The pre-existing mouse-only global monitor used for outside-click dismissal remains unchanged and does not observe keyboard or content.",
+  "retention": {
+    "syntheticCaseIdentifiers": true,
+    "categoricalJudgeVerdicts": true,
+    "usageLatencyAndCost": true,
+    "candidateDefinitions": false,
+    "rawProviderOutput": false,
+    "credentials": false
+  }
+}

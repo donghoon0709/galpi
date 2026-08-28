@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "kind": "package-boundary-report",
+  "runId": "m4-privacy-schema-2026-08-27",
+  "bindingManifest": ".gjc/quality-gate-artifacts/m4-g001-final-manifest.json",
+  "status": "passed",
+  "sqlite":{"quickCheck":"ok","foreignKeyViolations":0,"freshV1Tables":["entries","encounters","grdb_migrations"],"finalEntryCount":0,"finalEncounterCount":0,"schemaDrift":false},
+  "sourceScan":{"accessibilityProductionApi":false,"eventTap":false,"globalKeyboardMonitor":false,"screenCapture":false,"generalClipboardRead":false,"frontmostApplicationRead":false,"sourceIdentityPersistence":false,"rawProviderPayloadPersistence":false,"alternateProviderOrModel":false},
+  "evidenceContent":{"selectedText":false,"confirmedText":false,"entryContent":false,"providerOutput":false,"credential":false,"accountIdentifier":false,"sourceIdentity":false,"personalPath":false},
+  "supportedHosts":["Safari","Preview","Notes"],
+  "deferred":["Apple Books","external-camera 150 ms p95 gate"],
+  "signedQAAccessibilityOnly":true
+}

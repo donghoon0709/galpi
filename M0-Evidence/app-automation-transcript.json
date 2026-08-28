@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "surface": "native",
+  "tool": "macOS System Events and GJC computer",
+  "actions": [
+    {
+      "type": "click",
+      "timestamp": 1,
+      "selector": "Safari > Services > Collect Word Context"
+    },
+    {
+      "type": "press",
+      "timestamp": 2,
+      "selector": "Safari selected-text editor",
+      "key": "Control-Option-Command-G"
+    },
+    {
+      "type": "click",
+      "timestamp": 3,
+      "selector": "Preview > Services > Collect Word Context"
+    },
+    {
+      "type": "press",
+      "timestamp": 4,
+      "selector": "Preview selected-text editor",
+      "key": "Control-Option-Command-G"
+    },
+    {
+      "type": "click",
+      "timestamp": 5,
+      "selector": "Notes > Services > Collect Word Context"
+    },
+    {
+      "type": "press",
+      "timestamp": 6,
+      "selector": "Notes selected-text editor",
+      "key": "Control-Option-Command-G"
+    },
+    {
+      "type": "click",
+      "timestamp": 7,
+      "selector": "Point outside replacement Galpi panel"
+    },
+    {
+      "type": "custom",
+      "timestamp": 8,
+      "target": "Quit Galpi while diagnostic panel is visible"
+    }
+  ],
+  "assertions": [
+    {
+      "timestamp": 9,
+      "selector": "Safari menu-route JSONL panelReady",
+      "status": "passed"
+    },
+    {
+      "timestamp": 10,
+      "selector": "Safari shortcut-route full keyboard action set",
+      "status": "passed"
+    },
+    {
+      "timestamp": 11,
+      "selector": "Preview menu-route JSONL panelReady",
+      "status": "passed"
+    },
+    {
+      "timestamp": 12,
+      "selector": "Preview shortcut-route full keyboard action set",
+      "status": "passed"
+    },
+    {
+      "timestamp": 13,
+      "selector": "Notes menu-route JSONL panelReady",
+      "status": "passed"
+    },
+    {
+      "timestamp": 14,
+      "selector": "Notes shortcut-route full keyboard action set",
+      "status": "passed"
+    },
+    {
+      "timestamp": 15,
+      "selector": "Lifecycle JSONL replacement and outside dismissal",
+      "status": "passed"
+    },
+    {
+      "timestamp": 16,
+      "selector": "Termination JSONL monitor removal and flush",
+      "status": "passed"
+    }
+  ]
+}

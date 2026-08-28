@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 2,
+  "asOfDate": "2026-08-26",
+  "selectionConstraint": "low-cost exact non-preview models only",
+  "sources": [
+    {
+      "id": "responses-streaming",
+      "url": "https://developers.openai.com/api/docs/guides/streaming-responses",
+      "claims": ["Responses uses server-sent events when stream=true", "Streaming events are typed semantic events"]
+    },
+    {
+      "id": "structured-outputs",
+      "url": "https://developers.openai.com/api/docs/guides/structured-outputs",
+      "claims": ["Responses strict structured output uses text.format json_schema", "Refusals are programmatically detectable"]
+    },
+    {
+      "id": "data-controls",
+      "url": "https://developers.openai.com/api/docs/guides/your-data#default-usage-policies-by-endpoint",
+      "claims": ["Responses supports store=false", "store=false does not eliminate default abuse-monitoring retention without approved data controls"]
+    },
+    {
+      "id": "gpt-5.6-luna",
+      "url": "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+      "modelId": "gpt-5.6-luna",
+      "responses": true,
+      "streaming": true,
+      "structuredOutputs": true,
+      "maximumOutputTokens": 128000,
+      "inputUSDPerMillionTokens": 0.2,
+      "cachedInputUSDPerMillionTokens": 0.02,
+      "outputUSDPerMillionTokens": 1.2
+    },
+    {
+      "id": "gpt-5.4-nano-snapshot",
+      "url": "https://developers.openai.com/api/docs/models/gpt-5.4-nano",
+      "modelId": "gpt-5.4-nano-2026-03-17",
+      "responses": true,
+      "streaming": true,
+      "structuredOutputs": true,
+      "maximumOutputTokens": 128000,
+      "inputUSDPerMillionTokens": 0.2,
+      "cachedInputUSDPerMillionTokens": 0.02,
+      "outputUSDPerMillionTokens": 1.25
+    },
+    {
+      "id": "gpt-5-nano-snapshot",
+      "url": "https://developers.openai.com/api/docs/models/gpt-5-nano",
+      "modelId": "gpt-5-nano-2025-08-07",
+      "responses": true,
+      "streaming": true,
+      "structuredOutputs": true,
+      "maximumOutputTokens": 128000,
+      "inputUSDPerMillionTokens": 0.05,
+      "cachedInputUSDPerMillionTokens": 0.005,
+      "outputUSDPerMillionTokens": 0.4
+    }
+  ],
+  "excludedForCost": [
+    "gpt-5.6-terra",
+    "gpt-5.6-sol",
+    "gpt-5.4-mini-2026-03-17",
+    "flagship and pro tiers"
+  ],
+  "accountCallability": {
+    "callable": [
+      "gpt-5.6-luna",
+      "gpt-5.4-nano-2026-03-17"
+    ],
+    "notCallable": [
+      "gpt-5-nano-2025-08-07"
+    ],
+    "evidence": "M2a-Evidence/live-v2/model-gate-manifest.json",
+    "notCallableReason": "strict-stream probe failed: incomplete"
+  },
+  "benchmarkStarted": true,
+  "benchmarkCompleted": true,
+  "winnerModelID": null
+}

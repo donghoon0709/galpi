@@ -1,0 +1,54 @@
+{
+  "candidates": [
+    {
+      "allDimensionsAtLeastOneCount": 43,
+      "allDimensionsAtLeastOneRate": 0.5972222222222222,
+      "dimensionMeans": {
+        "accuracy": 1.875,
+        "contextFit": 0.7083333333333334,
+        "englishDefinition": 1.8055555555555556,
+        "koreanGloss": 1.9027777777777777
+      },
+      "eligible": false,
+      "failureCounts": {},
+      "meanCostUSD": 9.868333333333334e-05,
+      "modelID": "gpt-5.6-luna",
+      "p95CostUSD": 0.0001284,
+      "p95Milliseconds": 2177,
+      "runCount": 72
+    },
+    {
+      "allDimensionsAtLeastOneCount": 24,
+      "allDimensionsAtLeastOneRate": 0.3333333333333333,
+      "dimensionMeans": {
+        "accuracy": 1.7777777777777777,
+        "contextFit": 0.4305555555555556,
+        "englishDefinition": 1.75,
+        "koreanGloss": 1.8611111111111112
+      },
+      "eligible": false,
+      "failureCounts": {},
+      "meanCostUSD": 7.075347222222223e-05,
+      "modelID": "gpt-5.4-nano-2026-03-17",
+      "p95CostUSD": 8.645e-05,
+      "p95Milliseconds": 1521,
+      "runCount": 72
+    }
+  ],
+  "corpusHash": "890e13ca42657c1bacf5c1812d24627be5b093f42458d7bd8385c592277c2452",
+  "excludedCandidates": [
+    {
+      "modelID": "gpt-5-nano-2025-08-07",
+      "reason": "access probe not callable"
+    }
+  ],
+  "manifestHash": "3bcc19244fa3b0b8e1e0f5454e7be0680031befc89f4915467d3f626621d0d69",
+  "schemaVersion": 1,
+  "thresholds": {
+    "minimumCompleteDimensionsRate": 0.9,
+    "minimumDimensionMean": 1.7,
+    "p95StrictlyBelowMilliseconds": 10000,
+    "zeroFailures": true
+  },
+  "winnerModelID": null
+}

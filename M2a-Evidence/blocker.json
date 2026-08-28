@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 4,
+  "date": "2026-08-26",
+  "classification": "resolved-no-winner",
+  "liveManifestPersisted": true,
+  "liveBenchmarkCompleted": true,
+  "authoritativeEvidenceDirectory": "M2a-Evidence/live-v2",
+  "manifestHash": "d340801f483ae8dd8a3d01eb10b8267692adff95b6c2de7d09720c986542b661",
+  "callableCandidates": [
+    "gpt-5.6-luna",
+    "gpt-5.4-nano-2026-03-17"
+  ],
+  "excludedCandidate": {
+    "modelID": "gpt-5-nano-2025-08-07",
+    "reason": "strict-stream probe failed: incomplete"
+  },
+  "selectedModel": null,
+  "gateOutcome": "no_candidate_passed",
+  "reason": "Luna failed frozen context-fit quality thresholds. GPT-5.4 nano also recorded two exact selected-surface echo failures and failed frozen context-fit thresholds. Thresholds, corpus, prompt, schema, configuration, and provider were not changed after manifest persistence.",
+  "m2bAuthorized": false
+}
