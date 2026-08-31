@@ -32,6 +32,32 @@ final class LookupExecutorTests: XCTestCase {
     XCTAssertEqual(snapshot?.attemptCount, 1)
   }
 
+  func testValidClassificationOverridesClaimedTokenCountAndFallbackUsesIt() async throws {
+    let database = try AppDatabase.inMemory()
+    try database.createPending(input("word", tokenEnd: 3, surfaceForm: "word"), nowMilliseconds: 1)
+    let client = ScriptedClient(results: [
+      .success(result(classification: .word)),
+      .success(result(classification: .fallbackRequired)),
+    ])
+    let executor = LookupExecutor(
+      database: database, keyStore: StaticKeyStore(key: "key"), client: client,
+      clock: FixedClock(now: 1), connectivity: .satisfied)
+
+    await executor.startupRecovery()
+    try await eventually { try database.fetchEncounter(id: "word")?.status == .complete }
+    try database.createPending(
+      input("fallback", tokenEnd: 3, surfaceForm: "fallback"), nowMilliseconds: 1)
+    await executor.offer(encounterID: "fallback")
+    try await eventually {
+      try database.fetchEncounter(id: "fallback")?.status == .complete
+    }
+
+    let wordEntryID = try XCTUnwrap(database.fetchEncounter(id: "word")?.entryID)
+    let fallbackEntryID = try XCTUnwrap(database.fetchEncounter(id: "fallback")?.entryID)
+    XCTAssertFalse(try XCTUnwrap(database.fetchEntry(id: wordEntryID)).isPhrase)
+    XCTAssertTrue(try XCTUnwrap(database.fetchEntry(id: fallbackEntryID)).isPhrase)
+  }
+
   func testMissingKeyFailsWithoutClaimOrRequest() async throws {
     let database = try AppDatabase.inMemory()
     try database.createPending(input("missing-key"), nowMilliseconds: 1)
@@ -162,8 +188,8 @@ final class LookupExecutorTests: XCTestCase {
       try await eventually { try database.fetchEncounter(id: id)?.status == .failed }
       let record = try XCTUnwrap(database.fetchEncounter(id: id))
       XCTAssertEqual(record.lastErrorKind, item.1)
-      XCTAssertEqual(record.lastErrorMessage, item.1.sanitizedMessage)
-      XCTAssertFalse(record.lastErrorMessage?.contains("synthetic-key") ?? true)
+      XCTAssertEqual(record.lastErrorKind?.sanitizedMessage, item.1.sanitizedMessage)
+      XCTAssertFalse(record.lastErrorKind?.sanitizedMessage.contains("synthetic-key") ?? true)
     }
   }
 
@@ -194,7 +220,7 @@ final class LookupExecutorTests: XCTestCase {
       XCTAssertEqual(record.status, .pending)
       XCTAssertEqual(record.attemptCount, 1)
       XCTAssertEqual(record.lastErrorKind, item.1)
-      XCTAssertEqual(record.lastErrorMessage, item.1.sanitizedMessage)
+      XCTAssertEqual(record.lastErrorKind?.sanitizedMessage, item.1.sanitizedMessage)
       XCTAssertNotNil(record.nextRetryAtMilliseconds)
       await executor.shutdown()
     }
@@ -370,7 +396,9 @@ final class LookupExecutorTests: XCTestCase {
     let record = try XCTUnwrap(database.fetchEncounter(id: "keychain-fault"))
     XCTAssertEqual(record.attemptCount, 0)
     XCTAssertEqual(record.lastErrorKind, .keychainUnavailable)
-    XCTAssertEqual(record.lastErrorMessage, LookupFailureKind.keychainUnavailable.sanitizedMessage)
+    XCTAssertEqual(
+      record.lastErrorKind?.sanitizedMessage,
+      LookupFailureKind.keychainUnavailable.sanitizedMessage)
   }
 
   func testManualRetryAndDeleteReportStorageFailureTruthfully() async throws {
@@ -663,22 +691,33 @@ final class LookupExecutorTests: XCTestCase {
     await faultingExecutor.shutdown()
   }
 
-  private func input(_ id: String, due: Int64 = 1) -> PendingEncounterInput {
-    PendingEncounterInput(
+  private func input(
+    _ id: String,
+    due: Int64 = 1,
+    tokenEnd: Int = 2,
+    surfaceForm: String = "term"
+  ) -> PendingEncounterInput {
+    let sentence = "A \(surfaceForm) appears."
+    let range = (sentence as NSString).range(of: surfaceForm)
+    return PendingEncounterInput(
       id: id,
-      selectedText: "A term appears.",
-      normalizedText: "A term appears.",
-      surfaceForm: "term",
+      selectedText: sentence,
+      normalizedText: sentence,
+      surfaceForm: surfaceForm,
       tokenStart: 1,
-      tokenEnd: 2,
+      tokenEnd: tokenEnd,
+      selectionUTF16Start: range.location,
+      selectionUTF16End: range.location + range.length,
       language: .english,
       capturedAtMilliseconds: 1,
       nextRetryAtMilliseconds: due)
   }
 
-  private func result() -> DefinitionClientResult {
+  private func result(
+    classification: DefinitionClassification = .word
+  ) -> DefinitionClientResult {
     DefinitionClientResult(
-      koreanGloss: "뜻", englishDefinition: "meaning", inputTokens: 1,
+      koreanGloss: "뜻", englishDefinition: "meaning", classification: classification, inputTokens: 1,
       cachedInputTokens: 0, outputTokens: 1)
   }
 
@@ -778,7 +817,7 @@ private actor InspectingClient: DefinitionClientProtocol {
   func define(_ request: DefinitionClientRequest) async throws -> DefinitionClientResult {
     snapshot = try database.fetchEncounter(id: "encounter")
     return DefinitionClientResult(
-      koreanGloss: "뜻", englishDefinition: "meaning", inputTokens: 1,
+      koreanGloss: "뜻", englishDefinition: "meaning", classification: .word, inputTokens: 1,
       cachedInputTokens: 0, outputTokens: 1)
   }
 }
@@ -794,7 +833,7 @@ private actor DelayedClient: DefinitionClientProtocol {
     try await Task.sleep(for: .milliseconds(20))
     concurrent -= 1
     return DefinitionClientResult(
-      koreanGloss: "뜻", englishDefinition: "meaning", inputTokens: 1,
+      koreanGloss: "뜻", englishDefinition: "meaning", classification: .word, inputTokens: 1,
       cachedInputTokens: 0, outputTokens: 1)
   }
 }

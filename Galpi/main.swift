@@ -129,7 +129,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
           let result = await executor.manualRetryFailed(encounterID: id)
           await MainActor.run {
             self?.panelController.updateLookup(
-              encounterID: id, message: Self.retryMessage(for: result))
+              encounterID: id, message: Self.retryMessage(for: result),
+              presentation: Self.retryPresentation(for: result))
             self?.libraryController?.showOperationResult(
               Self.retryMessage(for: result), reloadAfterSuccess: result == .accepted)
           }
@@ -185,7 +186,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let result = await executor.manualRetry(encounterID: id)
         await MainActor.run {
           self.panelController.updateLookup(
-            encounterID: id, message: Self.retryMessage(for: result))
+            encounterID: id, message: Self.retryMessage(for: result),
+            presentation: Self.retryPresentation(for: result))
         }
       }
     }
@@ -210,24 +212,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private func handleLookupState(_ state: LookupExecutorState) {
     switch state {
     case .waitingForConnectivity:
-      panelController.updateCurrentLookup(message: "Saved locally — waiting for connection")
+      panelController.updateCurrentLookup(
+        message: "Saved locally — waiting for connection", presentation: .waitingForConnectivity)
     case .running(let id):
-      panelController.updateLookup(encounterID: id, message: "Looking up with Luna…")
+      panelController.updateLookup(
+        encounterID: id, message: "Looking up…", presentation: .running)
     case .retryScheduled(let id, let kind, let attempt, _):
       panelController.updateLookup(
         encounterID: id,
         message: "\(kind.sanitizedMessage) Automatic retry \(attempt)/5 scheduled",
+        presentation: .retryScheduled,
         showRetry: true)
     case .succeeded(let id, let entry):
       panelController.updateLookup(
         encounterID: id,
         message: "Saved contextual definition",
+        presentation: .succeeded,
         koreanGloss: entry.koreanGloss,
         englishDefinition: entry.englishDefinition)
     case .failed(let id, let kind):
       panelController.updateLookup(
         encounterID: id,
         message: kind.sanitizedMessage,
+        presentation: .failed(
+          settingsAvailable: kind == .missingKey || kind == .authentication || kind == .permission,
+          retryAvailable: kind != .missingKey),
         showSettings: kind == .missingKey || kind == .authentication || kind == .permission,
         showRetry: kind != .missingKey)
     case .storageUnavailable(let id):
@@ -235,12 +244,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panelController.updateLookup(
           encounterID: id,
           message:
-            "Local storage is unavailable. Galpi retries transient failures; use Library Retry after storage is restored."
+            "Local storage is unavailable. Galpi retries transient failures; use Library Retry after storage is restored.",
+          presentation: .storageUnavailable
         )
       } else {
         panelController.updateCurrentLookup(
           message:
-            "Local storage is unavailable. Galpi retries transient failures; manual recovery may be required."
+            "Local storage is unavailable. Galpi retries transient failures; manual recovery may be required.",
+          presentation: .storageUnavailable
         )
       }
     }
@@ -366,6 +377,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     case .busy: "Lookup is already running"
     case .notFound: "Lookup is no longer retryable"
     case .storageUnavailable: "Local storage is unavailable"
+    }
+  }
+
+  private static func retryPresentation(for result: LookupActionResult) -> CapturePresentationState {
+    switch result {
+    case .accepted, .busy:
+      return .queued
+    case .notFound:
+      return .failed(settingsAvailable: false, retryAvailable: false)
+    case .storageUnavailable:
+      return .storageUnavailable
     }
   }
 

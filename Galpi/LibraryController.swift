@@ -230,6 +230,8 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
   private let detailScroll = NSScrollView()
   private let historyDetailText = NSTextView()
   private let historyDetailScroll = NSScrollView()
+  private let entryContextText = NSTextView()
+  private let entryContextScroll = NSScrollView()
   private let editorContainer = NSView()
   private let historyContainer = NSView()
   private lazy var saveButton = NSButton(title: "Save", target: self, action: #selector(saveEntry))
@@ -288,6 +290,7 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     configureWindow()
   }
 
+
   var isVisible: Bool { window.isVisible }
   var isRetryEnabled: Bool { retryButton.isEnabled }
   var isRetryAllEnabled: Bool { retryAllButton.isEnabled }
@@ -297,6 +300,23 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
   var completedEncounterDetailLength: Int { historyDetailText.string.count }
   var editorSurface: String { surfaceField.stringValue }
   var statusMessage: String { statusLabel.stringValue }
+  var displayedEntryContext: String { entryContextText.string }
+  var entryContextHighlightRange: NSRange? {
+    let range = NSRange(location: 0, length: entryContextText.string.utf16.count)
+    var result: NSRange?
+    entryContextText.textStorage?.enumerateAttribute(.backgroundColor, in: range) {
+      value, range, stop in
+      guard value != nil else { return }
+      result = range
+      stop.pointee = true
+    }
+    return result
+  }
+  var entryContextAccessibilityValue: String? { entryContextText.accessibilityValue() }
+  var entryContextAccessibilityHelp: String? { entryContextText.accessibilityHelp() }
+  var entryContextIsReadOnly: Bool { !entryContextText.isEditable }
+  var entryContextIsSelectable: Bool { entryContextText.isSelectable }
+  var entryContextHasVerticalScroller: Bool { entryContextScroll.hasVerticalScroller }
   var searchControlState: (isHidden: Bool, isEnabled: Bool) {
     (searchField.isHidden, searchField.isEnabled)
   }
@@ -310,6 +330,7 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
       && filterButton.accessibilityLabel() == "Lookup status filter"
       && listTable.accessibilityLabel() == "Library items"
       && historyTable.accessibilityLabel() == "Encounter history"
+      && entryContextText.accessibilityLabel() == "Entry context"
       && phraseButton.accessibilityLabel() == "Entry is phrase"
       && statusLabel.accessibilityLabel() == "Library status"
       && saveButton.accessibilityLabel() == "Save Entry"
@@ -322,6 +343,7 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
   var hasKeyboardOrder: Bool {
     window.initialFirstResponder === searchField
       && searchField.nextKeyView === filterButton
+      && phraseButton.nextKeyView === historyTable
       && historyTable.nextKeyView === historyDetailText
       && detailText.nextKeyView === retryButton
       && deleteButton.nextKeyView === settingsButton
@@ -577,6 +599,7 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
       } else {
         populateEditor(snapshot.entries[index])
       }
+      showEntryContext(snapshot.entries[index])
       if let historyID = interaction.selectedHistoryID,
         let historyIndex = snapshot.selectedEntryHistory.firstIndex(where: { $0.id == historyID })
       {
@@ -751,7 +774,7 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
       editorContainer.leadingAnchor.constraint(equalTo: listScroll.trailingAnchor, constant: 12),
       editorContainer.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -12),
       editorContainer.topAnchor.constraint(equalTo: listScroll.topAnchor),
-      editorContainer.heightAnchor.constraint(equalToConstant: 170),
+      editorContainer.heightAnchor.constraint(equalToConstant: 260),
       detailScroll.leadingAnchor.constraint(equalTo: editorContainer.leadingAnchor),
       detailScroll.trailingAnchor.constraint(equalTo: editorContainer.trailingAnchor),
       detailScroll.topAnchor.constraint(equalTo: editorContainer.topAnchor),
@@ -799,6 +822,8 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
   }
 
   private func configureEditor() {
+    entryContextScroll.translatesAutoresizingMaskIntoConstraints = false
+    editorContainer.addSubview(entryContextScroll)
     languageButton.addItems(withTitles: EncounterLanguage.allCases.map(\.rawValue))
     languageButton.setAccessibilityLabel("Entry language")
     surfaceField.placeholderString = "Surface form"
@@ -822,6 +847,10 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
       grid.leadingAnchor.constraint(equalTo: editorContainer.leadingAnchor),
       grid.trailingAnchor.constraint(equalTo: editorContainer.trailingAnchor),
       grid.topAnchor.constraint(equalTo: editorContainer.topAnchor),
+      entryContextScroll.leadingAnchor.constraint(equalTo: editorContainer.leadingAnchor),
+      entryContextScroll.trailingAnchor.constraint(equalTo: editorContainer.trailingAnchor),
+      entryContextScroll.topAnchor.constraint(equalTo: grid.bottomAnchor, constant: 8),
+      entryContextScroll.bottomAnchor.constraint(equalTo: editorContainer.bottomAnchor),
     ])
   }
 
@@ -832,6 +861,7 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     ] {
       textView.isEditable = false
       textView.isRichText = false
+      textView.isSelectable = true
       textView.font = .systemFont(ofSize: 13)
       textView.textContainerInset = NSSize(width: 8, height: 8)
       textView.setAccessibilityLabel(label)
@@ -839,6 +869,17 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
       scroll.hasVerticalScroller = true
       scroll.borderType = .bezelBorder
     }
+    entryContextText.isEditable = false
+    entryContextText.isSelectable = true
+    entryContextText.isRichText = true
+    entryContextText.font = .systemFont(ofSize: 13)
+    entryContextText.textContainerInset = NSSize(width: 8, height: 8)
+    entryContextText.setAccessibilityLabel("Entry context")
+    entryContextText.setAccessibilityHelp(
+      "Read-only captured sentence context; selected surface is highlighted.")
+    entryContextScroll.documentView = entryContextText
+    entryContextScroll.hasVerticalScroller = true
+    entryContextScroll.borderType = .bezelBorder
   }
 
   private func scrollView(for table: NSTableView) -> NSScrollView {
@@ -887,6 +928,7 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     languageButton.selectItem(at: 0)
     detailText.string = "Select an item"
     historyDetailText.string = "Select an Encounter"
+    showNoEntryContext()
     if resetHistory {
       snapshot = LibrarySnapshot(
         mode: snapshot.mode, entries: snapshot.entries, unresolved: snapshot.unresolved,
@@ -901,6 +943,7 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     englishField.stringValue = entry.englishDefinition
     phraseButton.state = entry.isPhrase ? .on : .off
     languageButton.selectItem(withTitle: entry.language.rawValue)
+    showEntryContext(entry)
   }
 
   private func showSelection() {
@@ -918,6 +961,7 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
         state: snapshot.state)
       historyTable.reloadData()
       historyDetailText.string = "Select an Encounter"
+      showEntryContext(entry)
       requestReload(preserveInteraction: true)
     } else {
       guard snapshot.unresolved.indices.contains(row) else {
@@ -937,6 +981,54 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
       return
     }
     historyDetailText.string = Self.encounterDetail(snapshot.selectedEntryHistory[row])
+  }
+
+  private func showEntryContext(_ entry: EntryRecord) {
+    guard let sentence = entry.contextSentence, !sentence.isEmpty,
+      let storedStart = entry.contextStartUTF16, let storedEnd = entry.contextEndUTF16
+    else {
+      showNoEntryContext()
+      return
+    }
+    let length = (sentence as NSString).length
+    guard length > 0 else {
+      showNoEntryContext()
+      return
+    }
+    let start = min(max(0, storedStart), length - 1)
+    var end = min(max(0, storedEnd), length)
+    if end <= start { end = min(length, start + 1) }
+    let range = Self.enclosingCharacterRange(NSRange(location: start, length: end - start), in: sentence)
+    guard range.length > 0 else {
+      showNoEntryContext()
+      return
+    }
+    let text = NSMutableAttributedString(string: sentence)
+    text.addAttributes([
+      .backgroundColor: NSColor.selectedTextBackgroundColor.withAlphaComponent(0.35),
+      .underlineStyle: NSUnderlineStyle.single.rawValue,
+    ], range: range)
+    entryContextText.textStorage?.setAttributedString(text)
+    entryContextText.setAccessibilityValue("Context available; selected surface highlighted")
+    entryContextText.scrollRangeToVisible(range)
+  }
+
+  private func showNoEntryContext() {
+    entryContextText.string = "No context available"
+    entryContextText.setAccessibilityValue("No context available")
+    entryContextText.scroll(NSPoint(x: 0, y: 0))
+  }
+
+  private static func enclosingCharacterRange(_ range: NSRange, in text: String) -> NSRange {
+    guard range.location != NSNotFound, range.length > 0 else { return NSRange(location: 0, length: 0) }
+    let full = NSRange(text.startIndex..., in: text)
+    var enclosing: NSRange?
+    (text as NSString).enumerateSubstrings(in: full, options: .byComposedCharacterSequences) {
+      _, substringRange, _, _ in
+      guard NSIntersectionRange(substringRange, range).length > 0 else { return }
+      enclosing = enclosing.map { NSUnionRange($0, substringRange) } ?? substringRange
+    }
+    return enclosing ?? NSRange(location: 0, length: 0)
   }
 
   private func updateButtons() {

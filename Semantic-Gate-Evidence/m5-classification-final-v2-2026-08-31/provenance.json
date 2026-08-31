@@ -1,0 +1,9 @@
+{
+  "buildRecordSHA256" : "9c1ef2b55ed4e09001d2962936749c640cd6b131095edca863d231673062781e",
+  "commandSHA256" : "38c4542d84f1f066dd681d75bad24fc01ea493a0be388c44f079d908a3f2e703",
+  "executableSHA256" : "a39b3c536240da4e73eea769de685245874166bb5cb8f01424527b3bc20ffec8",
+  "manifestSHA256" : "e76edce31dcf2554b2a530c102a6bb7a049f90ed0f2560eee60225bfc624d796",
+  "reportSHA256" : "51c1f58f4a63e87ed46ca8701c582d4db3f05f90f853943e4592ede65333758e",
+  "revision" : "m5-reduced-classification-gate-v1",
+  "sourceHash" : "sha256:3a3aaffeed52cd0b00000380de85e134fea1b3c4db887facabd86a13aaaad2a8"
+}

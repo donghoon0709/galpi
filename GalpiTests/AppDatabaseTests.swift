@@ -26,7 +26,7 @@ final class AppDatabaseTests: XCTestCase {
       try database.databaseQueue.write { connection in
         try connection.execute(
           sql:
-            "INSERT INTO entries VALUES ('bad', 'invalid', 'key', 'surface', '뜻', 'meaning', 0, 1, 1)"
+            "INSERT INTO entries VALUES ('bad', 'invalid', 'key', 'surface', '뜻', 'meaning', 0, 1, 1, NULL, NULL, NULL)"
         )
       })
     XCTAssertThrowsError(
@@ -81,7 +81,8 @@ final class AppDatabaseTests: XCTestCase {
 
     let capture = ConfirmedCapture(
       normalizedSentence: "A confirmed term in context.", surfaceForm: "term", tokenStart: 2,
-      tokenEnd: 3, capturedAtMilliseconds: 100)
+      tokenEnd: 3, selectionUTF16Start: 12, selectionUTF16End: 16,
+      capturedAtMilliseconds: 100)
     let captureInput = PendingEncounterInput(id: "capture", confirmedCapture: capture)
     XCTAssertEqual(captureInput.selectedText, "term")
     XCTAssertEqual(captureInput.normalizedText, "A confirmed term in context.")
@@ -128,9 +129,6 @@ final class AppDatabaseTests: XCTestCase {
     XCTAssertEqual(failed?.status, .failed)
     XCTAssertNil(failed?.nextRetryAtMilliseconds)
     XCTAssertEqual(failed?.lastErrorKind, .retryExhausted)
-    XCTAssertEqual(
-      failed?.lastErrorMessage, LookupFailureKind.retryExhausted.sanitizedMessage)
-    XCTAssertFalse(failed?.lastErrorMessage?.contains("confirmed term") ?? true)
   }
 
   func testManualResetInvalidatesOldGenerationAndStaleOperationsDoNothing() throws {
@@ -170,7 +168,11 @@ final class AppDatabaseTests: XCTestCase {
       for id in ["a-entry", "b-entry"] {
         try connection.execute(
           sql: """
-            INSERT INTO entries VALUES (?, 'english', 'term', 'term', '뜻', 'definition', 0, 5, 5)
+            INSERT INTO entries (
+              id, language, headword_key, surface_form, korean_gloss,
+              english_definition, is_phrase, created_at_ms, updated_at_ms,
+              context_sentence, context_start_utf16, context_end_utf16
+            ) VALUES (?, 'english', 'term', 'term', '뜻', 'definition', 0, 5, 5, NULL, NULL, NULL)
             """, arguments: [id])
       }
     }
@@ -202,13 +204,17 @@ final class AppDatabaseTests: XCTestCase {
     try database.databaseQueue.write { connection in
       try connection.execute(
         sql: """
-          INSERT INTO entries VALUES
-          ('older', 'english', 'old', 'Old', '예전', 'Old meaning', 0, 1, 10),
-          ('newer', 'english', 'new', 'New', '새로운', 'New Meaning', 0, 2, 20),
-          ('literal', 'english', 'literal', '100%_path\\term', '기호', 'Literal token', 0, 3, 15),
-          ('tie-b', 'english', 'tie-b', 'Tie B', '동률', 'Tie B', 0, 5, 30),
-          ('tie-a', 'english', 'tie-a', 'Tie A', '동률', 'Tie A', 0, 5, 30),
-          ('tie-created', 'english', 'tie-c', 'Tie C', '생성', 'Tie C', 0, 6, 30)
+          INSERT INTO entries (
+            id, language, headword_key, surface_form, korean_gloss,
+            english_definition, is_phrase, created_at_ms, updated_at_ms,
+            context_sentence, context_start_utf16, context_end_utf16
+          ) VALUES
+          ('older', 'english', 'old', 'Old', '예전', 'Old meaning', 0, 1, 10, NULL, NULL, NULL),
+          ('newer', 'english', 'new', 'New', '새로운', 'New Meaning', 0, 2, 20, NULL, NULL, NULL),
+          ('literal', 'english', 'literal', '100%_path\\term', '기호', 'Literal token', 0, 3, 15, NULL, NULL, NULL),
+          ('tie-b', 'english', 'tie-b', 'Tie B', '동률', 'Tie B', 0, 5, 30, NULL, NULL, NULL),
+          ('tie-a', 'english', 'tie-a', 'Tie A', '동률', 'Tie A', 0, 5, 30, NULL, NULL, NULL),
+          ('tie-created', 'english', 'tie-c', 'Tie C', '생성', 'Tie C', 0, 6, 30, NULL, NULL, NULL)
           """)
     }
     XCTAssertEqual(
@@ -225,17 +231,21 @@ final class AppDatabaseTests: XCTestCase {
     try database.databaseQueue.write { connection in
       try connection.execute(
         sql: """
-          INSERT INTO entries VALUES
-          ('first', 'english', 'term', 'term', '뜻', 'definition', 0, 1, 1),
-          ('second', 'japanese', 'other', 'other', '다른 뜻', 'other definition', 1, 2, 2)
+          INSERT INTO entries (
+            id, language, headword_key, surface_form, korean_gloss,
+            english_definition, is_phrase, created_at_ms, updated_at_ms,
+            context_sentence, context_start_utf16, context_end_utf16
+          ) VALUES
+          ('first', 'english', 'term', 'term', '뜻', 'definition', 0, 1, 1, NULL, NULL, NULL),
+          ('second', 'japanese', 'other', 'other', '다른 뜻', 'other definition', 1, 2, 2, NULL, NULL, NULL)
           """)
       try connection.execute(
         sql: """
           INSERT INTO encounters VALUES
-          ('first-history', 'first', 'term', 'term context', 'term', 0, 1, 'english', 1,
-           'complete', 1, NULL, NULL, NULL, 0, 1, 1),
-          ('second-history', 'second', 'other', 'other context', 'other', 0, 1, 'japanese', 2,
-           'complete', 1, NULL, NULL, NULL, 0, 2, 2)
+          ('first-history', 'first', 'term', 'term context', 'term', 0, 1, NULL, NULL, 'english', 1,
+           'complete', 1, NULL, NULL, 0, 1, 1),
+          ('second-history', 'second', 'other', 'other context', 'other', 0, 1, NULL, NULL, 'japanese', 2,
+           'complete', 1, NULL, NULL, 0, 2, 2)
           """)
     }
     let updated = try database.updateEntry(
@@ -306,14 +316,14 @@ final class AppDatabaseTests: XCTestCase {
       try connection.execute(
         sql: """
           INSERT INTO encounters VALUES
-          ('history-b', 'entry', 'term', 'context b', 'term', 0, 1, 'english', 20,
-           'complete', 1, NULL, NULL, NULL, 0, 5, 5),
-          ('history-a', 'entry', 'term', 'context a', 'term', 0, 1, 'english', 20,
-           'complete', 1, NULL, NULL, NULL, 0, 5, 5),
-          ('history-newer-created', 'entry', 'term', 'context c', 'term', 0, 1, 'english', 20,
-           'complete', 1, NULL, NULL, NULL, 0, 6, 6),
-          ('history-older-capture', 'entry', 'term', 'context d', 'term', 0, 1, 'english', 10,
-           'complete', 1, NULL, NULL, NULL, 0, 9, 9)
+          ('history-b', 'entry', 'term', 'context b', 'term', 0, 1, NULL, NULL, 'english', 20,
+           'complete', 1, NULL, NULL, 0, 5, 5),
+          ('history-a', 'entry', 'term', 'context a', 'term', 0, 1, NULL, NULL, 'english', 20,
+           'complete', 1, NULL, NULL, 0, 5, 5),
+          ('history-newer-created', 'entry', 'term', 'context c', 'term', 0, 1, NULL, NULL, 'english', 20,
+           'complete', 1, NULL, NULL, 0, 6, 6),
+          ('history-older-capture', 'entry', 'term', 'context d', 'term', 0, 1, NULL, NULL, 'english', 10,
+           'complete', 1, NULL, NULL, 0, 9, 9)
           """)
     }
     XCTAssertEqual(
@@ -346,10 +356,86 @@ final class AppDatabaseTests: XCTestCase {
     XCTAssertEqual(try database.fetchEncounter(id: "failed")?.status, .pending)
   }
 
+  func testLiteralV1FixtureMigratesContextReuseAndFutureKinds() throws {
+    let path = try literalV1Fixture()
+    defer { try? FileManager.default.removeItem(at: path) }
+    let database = try AppDatabase(path: path)
+    XCTAssertEqual(try database.fetchEntry(id: "old")?.contextSentence, "term appears; term repeats")
+    XCTAssertEqual(try database.fetchEntry(id: "old")?.contextStartUTF16, 0)
+    XCTAssertNil(try database.fetchEntry(id: "missing")?.contextSentence)
+    _ = try database.createPending(input("reuse"), nowMilliseconds: 5)
+    XCTAssertEqual(
+      try database.complete(
+        encounterID: "reuse", expectedGeneration: 0, entry: payload("new-canonical"),
+        nowMilliseconds: 6)?.id,
+      "old")
+    XCTAssertTrue(try database.fetchEntry(id: "old")?.isPhrase ?? false)
+    XCTAssertNil(try database.fetchEntry(id: "new-canonical"))
+    XCTAssertEqual(try database.fetchEncounter(id: "known")?.lastErrorKind, .schema)
+    try database.databaseQueue.write { db in
+      try db.execute(sql: "UPDATE encounters SET last_error_kind = 'future_kind' WHERE id = 'known'")
+    }
+    XCTAssertThrowsError(try database.fetchEncounter(id: "known"))
+    let entryColumns = try database.databaseQueue.read { db in
+      try Row.fetchAll(db, sql: "PRAGMA table_info(entries)").map { (row: Row) -> String in row["name"] }
+    }
+    XCTAssertEqual(entryColumns.count, 12)
+    let schema = try database.databaseQueue.read { db in
+      try String.fetchAll(
+        db,
+        sql: "SELECT sql FROM sqlite_master WHERE name IN ('encounters', 'entries_canonical') ORDER BY name")
+        .joined(separator: "\n")
+    }
+    XCTAssertFalse(schema.contains("last_error_message"))
+    XCTAssertFalse(schema.contains("last_error_kind IN"))
+    XCTAssertFalse(schema.contains("is_phrase)"))
+    XCTAssertTrue(schema.contains("english_definition)"))
+    XCTAssertTrue(try database.databaseQueue.read { db in
+      try Row.fetchAll(db, sql: "PRAGMA foreign_key_check").isEmpty
+    })
+  }
+
+  func testLiteralV1FixtureRollsBackV2AfterEntriesCopy() throws {
+    let path = try literalV1Fixture()
+    defer { try? FileManager.default.removeItem(at: path) }
+    AppDatabase.v2MigrationFailureInjector = { _ in throw FixtureError.injected }
+    defer { AppDatabase.v2MigrationFailureInjector = nil }
+    XCTAssertThrowsError(try AppDatabase(path: path))
+    let queue = try DatabaseQueue(path: path.path)
+    XCTAssertEqual(try queue.read { db in
+      try String.fetchAll(db, sql: "SELECT identifier FROM grdb_migrations")
+    }, ["v1"])
+    XCTAssertTrue(try queue.read { db in
+      try Row.fetchAll(db, sql: "PRAGMA table_info(encounters)").contains {
+        (row: Row) in (row["name"] as String) == "last_error_message"
+      }
+    })
+    XCTAssertEqual(try queue.read { db in try Int.fetchOne(db, sql: "SELECT count(*) FROM entries") }, 3)
+    XCTAssertEqual(
+      try queue.read { db in try Int.fetchOne(db, sql: "SELECT count(*) FROM encounters") }, 4)
+    XCTAssertEqual(
+      try queue.read { db in
+        try String.fetchAll(
+          db,
+          sql: "SELECT name FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+      },
+      [
+        "encounters_captured_at", "encounters_entry_id", "encounters_status_due",
+        "entries_canonical",
+      ])
+    XCTAssertEqual(
+      try queue.read { db in
+        try String.fetchOne(db, sql: "SELECT normalized_text FROM encounters WHERE id = 'old-first'")
+      },
+      "term appears; term repeats")
+    XCTAssertTrue(try queue.read { db in try Row.fetchAll(db, sql: "PRAGMA foreign_key_check").isEmpty })
+  }
+
   private func input(_ id: String, capturedAt: Int64 = 1, due: Int64 = 1) -> PendingEncounterInput {
     PendingEncounterInput(
       id: id, selectedText: "confirmed term", normalizedText: "confirmed term in context",
-      surfaceForm: "confirmed term", tokenStart: 0, tokenEnd: 2, language: .english,
+      surfaceForm: "confirmed term", tokenStart: 0, tokenEnd: 2,
+      selectionUTF16Start: 0, selectionUTF16End: 14, language: .english,
       capturedAtMilliseconds: capturedAt, nextRetryAtMilliseconds: due)
   }
 
@@ -357,5 +443,71 @@ final class AppDatabaseTests: XCTestCase {
     EntryPayload(
       id: id, language: .english, headwordKey: "term", surfaceForm: "term",
       koreanGloss: "뜻", englishDefinition: "definition", isPhrase: false)
+  }
+
+  private enum FixtureError: Error { case injected }
+
+  private func literalV1Fixture() throws -> URL {
+    let path = FileManager.default.temporaryDirectory.appendingPathComponent("galpi-v1-\(UUID().uuidString).sqlite")
+    let queue = try DatabaseQueue(path: path.path)
+    try queue.write { db in
+      try db.execute(sql: """
+        CREATE TABLE entries (
+          id TEXT PRIMARY KEY NOT NULL CHECK(length(id) > 0),
+          language TEXT NOT NULL CHECK(language IN ('english','japanese','mixed','und')),
+          headword_key TEXT NOT NULL CHECK(length(headword_key) > 0),
+          surface_form TEXT NOT NULL CHECK(length(surface_form) > 0),
+          korean_gloss TEXT NOT NULL CHECK(length(korean_gloss) > 0),
+          english_definition TEXT NOT NULL CHECK(length(english_definition) > 0),
+          is_phrase INTEGER NOT NULL CHECK(is_phrase IN (0,1)),
+          created_at_ms INTEGER NOT NULL CHECK(created_at_ms >= 0),
+          updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms >= 0))
+        """)
+      try db.execute(sql: """
+        CREATE TABLE encounters (
+          id TEXT PRIMARY KEY NOT NULL CHECK(length(id) > 0),
+          entry_id TEXT REFERENCES entries(id) ON DELETE CASCADE,
+          selected_text TEXT NOT NULL CHECK(length(selected_text) > 0),
+          normalized_text TEXT NOT NULL CHECK(length(normalized_text) > 0),
+          surface_form TEXT NOT NULL CHECK(length(surface_form) > 0),
+          token_start INTEGER NOT NULL CHECK(token_start >= 0),
+          token_end INTEGER NOT NULL CHECK(token_end > token_start),
+          language TEXT NOT NULL CHECK(language IN ('english','japanese','mixed','und')),
+          captured_at_ms INTEGER NOT NULL CHECK(captured_at_ms >= 0),
+          status TEXT NOT NULL CHECK(status IN ('pending','complete','failed')),
+          attempt_count INTEGER NOT NULL CHECK(attempt_count >= 0),
+          next_retry_at_ms INTEGER CHECK(next_retry_at_ms >= 0),
+          last_error_kind TEXT CHECK(last_error_kind IN ('schema','offline')),
+          last_error_message TEXT CHECK(last_error_message IS NULL OR length(last_error_message) > 0),
+          generation INTEGER NOT NULL CHECK(generation >= 0),
+          created_at_ms INTEGER NOT NULL CHECK(created_at_ms >= 0),
+          updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms >= 0),
+          CHECK((status = 'complete') = (entry_id IS NOT NULL)),
+          CHECK((last_error_kind IS NULL) = (last_error_message IS NULL)),
+          CHECK(last_error_message IS NULL OR last_error_message = CASE last_error_kind
+            WHEN 'schema' THEN 'Lookup service returned an invalid response.'
+            WHEN 'offline' THEN 'Waiting for a network connection.' END))
+        """)
+      try db.execute(sql: "CREATE INDEX entries_canonical ON entries(language, headword_key, surface_form, korean_gloss, english_definition, is_phrase)")
+      try db.execute(sql: "CREATE INDEX encounters_status_due ON encounters(status, next_retry_at_ms)")
+      try db.execute(sql: "CREATE INDEX encounters_entry_id ON encounters(entry_id)")
+      try db.execute(sql: "CREATE INDEX encounters_captured_at ON encounters(captured_at_ms)")
+      try db.execute(sql: "CREATE TABLE grdb_migrations (identifier TEXT NOT NULL PRIMARY KEY)")
+      try db.execute(sql: "INSERT INTO grdb_migrations VALUES ('v1')")
+      try db.execute(sql: """
+        INSERT INTO entries VALUES
+        ('old','english','term','term','뜻','definition',1,1,1),
+        ('duplicate','english','term','term','뜻','definition',0,2,2),
+        ('missing','english','absent','absent','뜻','definition',0,3,3)
+        """)
+      try db.execute(sql: """
+        INSERT INTO encounters VALUES
+        ('old-first','old','term','term appears; term repeats','term',0,1,'english',1,'complete',1,NULL,NULL,NULL,2,1,1),
+        ('old-later','old','term','later term','term',0,1,'english',2,'complete',1,NULL,NULL,NULL,3,2,2),
+        ('missing-context','missing','absent','does not match','absent',0,1,'english',3,'complete',1,NULL,NULL,NULL,4,3,3),
+        ('known',NULL,'term','term','term',0,1,'english',4,'failed',1,NULL,'schema','Lookup service returned an invalid response.',5,4,4)
+        """)
+    }
+    return path
   }
 }

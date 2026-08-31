@@ -301,6 +301,7 @@ private struct StubDefinitionClient: DefinitionClientProtocol {
     return DefinitionClientResult(
       koreanGloss: "뜻",
       englishDefinition: "meaning",
+      classification: .word,
       inputTokens: 7,
       cachedInputTokens: 0,
       outputTokens: 5

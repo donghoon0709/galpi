@@ -1,0 +1,26 @@
+{
+  "candidateModel" : "gpt-5.6-luna",
+  "caseIDs" : [
+    "m5-en-word",
+    "m5-en-phrase",
+    "m5-ja-word",
+    "m5-ja-phrase"
+  ],
+  "configurationSHA256" : "087ff88016f0f28f74fd650dbad7eb5f93aa605b7e40eb401d3444996960a89c",
+  "expectedTypes" : [
+    "word",
+    "phrase",
+    "word",
+    "phrase"
+  ],
+  "judgeConfigurationSHA256" : "286e28033dcdc824230b29bdbd77f60ea404eca5f574d85829f333c8838a6c2c",
+  "judgeModel" : "gpt-5.6-sol",
+  "judgePromptSHA256" : "1a6ef2fbf44b52a67994fac077125b99081a62bef30c0a5bc245642fa8e675aa",
+  "judgeSchemaSHA256" : "9a720672887e03c035357f3247dd026f012d385523af3465cf6cc069bff67d2e",
+  "p95CandidateLatencyExclusiveMilliseconds" : 10000,
+  "promptSHA256" : "9d6ba1a86a40bdb9d5b49ffa969d97940dcc4e38f2d5f72edd92655a85278ca0",
+  "revision" : "m5-reduced-classification-gate-v1",
+  "schemaSHA256" : "76eb0d07f00f391be7cc35d214a842303cbbaf954b85190d22455aa1ba3cbfea",
+  "sourceHash" : "sha256:3a3aaffeed52cd0b00000380de85e134fea1b3c4db887facabd86a13aaaad2a8",
+  "totalCostCeilingUSD" : 0.25
+}

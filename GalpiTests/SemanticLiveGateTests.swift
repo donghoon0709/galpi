@@ -314,6 +314,7 @@ private actor StubSemanticCandidate: DefinitionClientProtocol {
     callCount += 1
     return .init(
       koreanGloss: "문맥에 맞는 뜻", englishDefinition: "the contextually correct meaning",
+      classification: .word,
       inputTokens: 100, cachedInputTokens: 0, outputTokens: 20)
   }
 }
