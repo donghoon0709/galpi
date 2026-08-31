@@ -3,6 +3,59 @@ import GRDB
 import XCTest
 
 final class AppDatabaseTests: XCTestCase {
+  func testListEntriesModifiedWithinInclusiveBoundsAndSearchConjunction() throws {
+    let database = try AppDatabase.inMemory()
+    let lower: Int64 = 1_000
+    let upper: Int64 = 2_000
+    let timestamps: [(String, Int64)] = [
+      ("below", 999), ("at-lower", lower), ("inside", 1_500),
+      ("at-upper", upper), ("above", 2_001), ("future", 9_000),
+    ]
+    for (id, timestamp) in timestamps {
+      _ = try database.createPending(input(id), nowMilliseconds: timestamp)
+      _ = try database.complete(
+        encounterID: id, expectedGeneration: 0,
+        entry: EntryPayload(
+          id: id, language: .english, headwordKey: "needle-\(id)",
+          surfaceForm: "needle \(id)", koreanGloss: "뜻",
+          englishDefinition: "definition", isPhrase: false),
+        nowMilliseconds: timestamp)
+    }
+
+    XCTAssertEqual(
+      try database.listEntries(modifiedWithin: lower...upper).map(\.id),
+      ["at-upper", "inside", "at-lower"])
+    XCTAssertEqual(
+      try database.listEntries(search: "needle", modifiedWithin: lower...upper).map(\.id),
+      ["at-upper", "inside", "at-lower"])
+    XCTAssertEqual(
+      try database.listEntries(search: "future", modifiedWithin: lower...upper).map(\.id),
+      [])
+    XCTAssertEqual(
+      try database.listEntries(modifiedWithin: 999...999).map(\.id),
+      ["below"])
+    XCTAssertEqual(
+      try database.listEntries(search: "needle", modifiedWithin: nil).map(\.id),
+      try database.listEntries(search: "needle").map(\.id))
+
+    for (id, literal) in [("percent", "%"), ("underscore", "_"), ("slash", "\\")] {
+      _ = try database.createPending(input(id), nowMilliseconds: 1_500)
+      _ = try database.complete(
+        encounterID: id, expectedGeneration: 0,
+        entry: EntryPayload(
+          id: id, language: .english, headwordKey: "literal-\(id)",
+          surfaceForm: "literal \(literal)", koreanGloss: "뜻",
+          englishDefinition: "literal \(literal)", isPhrase: false),
+        nowMilliseconds: 1_500)
+    }
+    XCTAssertEqual(
+      try database.listEntries(search: "%", modifiedWithin: lower...upper).map(\.id), ["percent"])
+    XCTAssertEqual(
+      try database.listEntries(search: "_", modifiedWithin: lower...upper).map(\.id), ["underscore"])
+    XCTAssertEqual(
+      try database.listEntries(search: "\\", modifiedWithin: lower...upper).map(\.id), ["slash"])
+  }
+
   func testMigrationReopenAndForeignKeys() throws {
     let path = FileManager.default.temporaryDirectory.appendingPathComponent(
       "galpi-db-reopen.sqlite")

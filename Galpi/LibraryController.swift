@@ -2,8 +2,16 @@ import AppKit
 import Foundation
 
 internal enum LibraryMode: Int, CaseIterable, Sendable {
-  case entries
+  case all
+  case recent
   case unresolved
+}
+
+internal let libraryRecentWindowMilliseconds: Int64 = 30 * 24 * 60 * 60 * 1_000
+internal func libraryRecentRange(nowMilliseconds: Int64) -> ClosedRange<Int64> {
+  let upper = max(0, nowMilliseconds)
+  let lower = max(0, upper >= libraryRecentWindowMilliseconds ? upper - libraryRecentWindowMilliseconds : 0)
+  return lower...upper
 }
 
 internal enum LibraryUnresolvedFilter: Int, CaseIterable, Sendable {
@@ -88,8 +96,8 @@ extension LookupExecutorState {
   }
 }
 
-internal protocol LibraryDataProviding: Sendable {
-  func entries(search: String) throws -> [EntryRecord]
+ internal protocol LibraryDataProviding: Sendable {
+  func entries(search: String, modifiedWithin: ClosedRange<Int64>?) throws -> [EntryRecord]
   func unresolved(filter: LibraryUnresolvedFilter) throws -> [EncounterRecord]
   func history(entryID: String) throws -> [EncounterRecord]
   func updateEntry(id: String, input: EntryEditInput, nowMilliseconds: Int64) throws
@@ -103,8 +111,8 @@ internal final class LibraryViewModel: LibraryDataProviding, @unchecked Sendable
 
   init(database: AppDatabase) { self.database = database }
 
-  func entries(search: String) throws -> [EntryRecord] {
-    try database.listEntries(search: search)
+  func entries(search: String, modifiedWithin: ClosedRange<Int64>?) throws -> [EntryRecord] {
+    try database.listEntries(search: search, modifiedWithin: modifiedWithin)
   }
 
   func unresolved(filter: LibraryUnresolvedFilter) throws -> [EncounterRecord] {
@@ -134,7 +142,7 @@ internal final class LibraryViewModel: LibraryDataProviding, @unchecked Sendable
 internal struct UnavailableLibraryDataProvider: LibraryDataProviding {
   internal struct StorageUnavailable: Error {}
 
-  func entries(search: String) throws -> [EntryRecord] { throw StorageUnavailable() }
+  func entries(search: String, modifiedWithin: ClosedRange<Int64>?) throws -> [EntryRecord] { throw StorageUnavailable() }
   func unresolved(filter: LibraryUnresolvedFilter) throws -> [EncounterRecord] {
     throw StorageUnavailable()
   }
@@ -159,7 +167,7 @@ private struct LibraryInteractionState {
 }
 
 private enum LibraryLoadPayload: Sendable {
-  case entries([EntryRecord], history: [EncounterRecord], historyLoadFailed: Bool)
+  case entries(LibraryMode, [EntryRecord], history: [EncounterRecord], historyLoadFailed: Bool)
   case unresolved([EncounterRecord], hasFailedRows: Bool)
   case failed(LibraryMode)
 }
@@ -169,21 +177,22 @@ private func loadLibraryPayload(
   mode: LibraryMode,
   search: String,
   filter: LibraryUnresolvedFilter,
-  selectedEntryID: String?
+  selectedEntryID: String?,
+  modifiedWithin: ClosedRange<Int64>? = nil
 ) -> LibraryLoadPayload {
   do {
     switch mode {
-    case .entries:
-      let entries = try provider.entries(search: search)
+    case .all, .recent:
+      let entries = try provider.entries(search: search, modifiedWithin: modifiedWithin)
       guard let selectedEntryID, entries.contains(where: { $0.id == selectedEntryID }) else {
-        return .entries(entries, history: [], historyLoadFailed: false)
+        return .entries(mode, entries, history: [], historyLoadFailed: false)
       }
       do {
         return .entries(
-          entries, history: try provider.history(entryID: selectedEntryID),
+          mode, entries, history: try provider.history(entryID: selectedEntryID),
           historyLoadFailed: false)
       } catch {
-        return .entries(entries, history: [], historyLoadFailed: true)
+        return .entries(mode, entries, history: [], historyLoadFailed: true)
       }
     case .unresolved:
       let allRows = try provider.unresolved(filter: .all)
@@ -193,7 +202,12 @@ private func loadLibraryPayload(
         case .pending: allRows.filter { $0.status == .pending }
         case .failed: allRows.filter { $0.status == .failed }
         }
-      return .unresolved(rows, hasFailedRows: allRows.contains { $0.status == .failed })
+      let needle = search.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+      let visible = needle.isEmpty ? rows : rows.filter {
+        [$0.selectedText, $0.normalizedText, $0.surfaceForm]
+          .contains { $0.lowercased().contains(needle) }
+      }
+      return .unresolved(visible, hasFailedRows: allRows.contains { $0.status == .failed })
     }
   } catch {
     return .failed(mode)
@@ -202,7 +216,7 @@ private func loadLibraryPayload(
 
 @MainActor
 internal final class LibraryController: NSObject, NSTableViewDataSource, NSTableViewDelegate,
-  NSSearchFieldDelegate
+  NSSearchFieldDelegate, NSSplitViewDelegate
 {
   var retryHandler: ((String) -> Void)?
   var retryAllHandler: (() -> Void)?
@@ -214,8 +228,15 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
   private let confirmEntryDeletion: (EntryDeletionPreview) -> Bool
   private let confirmUnresolvedDeletion: (EncounterRecord) -> Bool
   private let window: NSWindow
+  private let railView = NSStackView()
+  private let librarySplitView: NSSplitView = {
+    let split = NSSplitView()
+    split.isVertical = true
+    split.setAccessibilityLabel("Library regions")
+    return split
+  }()
   private let modeControl = NSSegmentedControl(
-    labels: ["Entries", "Unresolved"], trackingMode: .selectOne, target: nil, action: nil)
+    labels: ["All", "Recent", "Unresolved"], trackingMode: .selectOne, target: nil, action: nil)
   private let searchField = NSSearchField()
   private let filterButton = NSPopUpButton()
   private let listTable = NSTableView()
@@ -233,21 +254,30 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
   private let entryContextText = NSTextView()
   private let entryContextScroll = NSScrollView()
   private let editorContainer = NSView()
+  private let readMetadataContainer = NSStackView()
+  private let readMetadataField = NSTextField(wrappingLabelWithString: "")
+  private let readDetailsField = NSTextField(wrappingLabelWithString: "")
+  private lazy var detailsButton = NSButton(
+    title: "Show Details", target: self, action: #selector(toggleDetails))
+  private var editMetadataGrid: NSGridView?
   private let historyContainer = NSView()
   private lazy var saveButton = NSButton(title: "Save", target: self, action: #selector(saveEntry))
+  private lazy var editButton = NSButton(title: "Edit", target: self, action: #selector(beginEdit))
+  private lazy var cancelButton = NSButton(title: "Cancel", target: self, action: #selector(cancelEdit))
   private lazy var deleteButton = NSButton(
     title: "Delete…", target: self, action: #selector(deleteSelected))
   private lazy var retryButton = NSButton(
     title: "Retry", target: self, action: #selector(retrySelected))
   private lazy var retryAllButton = NSButton(
     title: "Retry All Failed", target: self, action: #selector(retryAllFailed))
-  private lazy var settingsButton = NSButton(
-    title: "OpenAI API Key…", target: self, action: #selector(openSettings))
+  private lazy var libraryRailButton = NSButton(title: "Library", target: nil, action: nil)
+  private lazy var settingsRailButton = NSButton(
+    title: "Settings", target: self, action: #selector(openSettings))
   private lazy var refreshButton = NSButton(
     title: "Refresh", target: self, action: #selector(refresh))
 
   private(set) var snapshot = LibrarySnapshot(
-    mode: .entries, entries: [], unresolved: [], selectedEntryHistory: [], state: .loading)
+    mode: .all, entries: [], unresolved: [], selectedEntryHistory: [], state: .loading)
   private(set) var reloadCount = 0
   private var refreshScheduled = false
   private var refreshPending = false
@@ -257,6 +287,8 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
   private var operationMessage: String?
   private var hasFailedRows = false
   private var historyLoadFailed = false
+  private var isEditingEntry = false
+  private var showsEntryDetails = false
 
   convenience init(
     database: AppDatabase,
@@ -282,7 +314,7 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     self.confirmUnresolvedDeletion =
       confirmUnresolvedDeletion ?? Self.presentUnresolvedDeletionConfirmation
     window = NSWindow(
-      contentRect: NSRect(x: 0, y: 0, width: 960, height: 620),
+      contentRect: NSRect(x: 0, y: 0, width: 1_200, height: 760),
       styleMask: [.titled, .closable, .resizable, .miniaturizable],
       backing: .buffered,
       defer: false)
@@ -296,11 +328,45 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
   var isRetryAllEnabled: Bool { retryAllButton.isEnabled }
   var isDeleteEnabled: Bool { deleteButton.isEnabled }
   var isSaveEnabled: Bool { saveButton.isEnabled }
+  var entryEditorIsEnabled: Bool {
+    [surfaceField, koreanField, englishField, languageButton, phraseButton].allSatisfy(\.isEnabled)
+  }
+  var libraryContentMinimumSize: NSSize { window.contentMinSize }
+  var editorLayoutHeights: (hero: CGFloat, metadata: CGFloat) {
+    (entryContextScroll.frame.height, readMetadataContainer.frame.height)
+  }
+  func constrainedDividerPosition(_ position: CGFloat, dividerIndex: Int) -> CGFloat {
+    splitView(librarySplitView, constrainSplitPosition: position, ofSubviewAt: dividerIndex)
+  }
+  var secondDividerUpperBound: CGFloat {
+    librarySplitView.bounds.width - librarySplitView.dividerThickness - 520
+  }
+  var railLayoutState: (width: CGFloat, libraryInside: Bool, settingsInside: Bool) {
+    let bounds = railView.bounds
+    let libraryFrame = railView.convert(libraryRailButton.frame, from: libraryRailButton.superview)
+    let settingsFrame = railView.convert(settingsRailButton.frame, from: settingsRailButton.superview)
+    return (railView.frame.width, bounds.contains(libraryFrame), bounds.contains(settingsFrame))
+  }
   var hasSettingsAction: Bool { true }
+  var railAccessibilityState: (label: String?, value: String?) {
+    (libraryRailButton.accessibilityLabel(), libraryRailButton.accessibilityValue() as? String)
+  }
+  var activeKeyLoopExcludesHiddenControls: Bool {
+    var current: NSView? = searchField
+    var visited = Set<ObjectIdentifier>()
+    while let view = current, visited.insert(ObjectIdentifier(view)).inserted {
+      if view.isHidden { return false }
+      current = view.nextKeyView
+    }
+    return true
+  }
   var completedEncounterDetailLength: Int { historyDetailText.string.count }
   var editorSurface: String { surfaceField.stringValue }
   var statusMessage: String { statusLabel.stringValue }
   var displayedEntryContext: String { entryContextText.string }
+  var readSummaryText: String { readMetadataField.stringValue }
+  var readDetailsText: String { readDetailsField.stringValue }
+  var entryDetailsAreVisible: Bool { !readDetailsField.isHidden }
   var entryContextHighlightRange: NSRange? {
     let range = NSRange(location: 0, length: entryContextText.string.utf16.count)
     var result: NSRange?
@@ -323,6 +389,7 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
   var filterControlState: (isHidden: Bool, isEnabled: Bool) {
     (filterButton.isHidden, filterButton.isEnabled)
   }
+  var filterAccessibilityLabel: String? { filterButton.accessibilityLabel() }
   var hasCompleteAccessibilityContract: Bool {
     window.accessibilityLabel() == "Galpi Library"
       && modeControl.accessibilityLabel() == "Library mode"
@@ -337,18 +404,23 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
       && retryButton.accessibilityLabel() == "Retry failed lookup"
       && retryAllButton.accessibilityLabel() == "Retry all failed lookups"
       && deleteButton.accessibilityLabel() == "Delete selected Library item"
-      && settingsButton.accessibilityLabel() == "Open API key settings"
+      && libraryRailButton.accessibilityLabel() == "Library"
+      && (libraryRailButton.accessibilityValue() as? String) == "Selected"
+      && settingsRailButton.accessibilityLabel() == "Open API key settings"
       && refreshButton.accessibilityLabel() == "Refresh Library"
   }
   var hasKeyboardOrder: Bool {
     window.initialFirstResponder === searchField
-      && searchField.nextKeyView === filterButton
-      && phraseButton.nextKeyView === historyTable
-      && historyTable.nextKeyView === historyDetailText
-      && detailText.nextKeyView === retryButton
-      && deleteButton.nextKeyView === settingsButton
+      && modeControl.nextKeyView === searchField
+      && deleteButton.nextKeyView === settingsRailButton
       && refreshButton.nextKeyView === modeControl
+      && activeKeyLoopExcludesHiddenControls
   }
+
+  func beginEditForTesting() { beginEdit() }
+  func saveEntryForTesting() { saveEntry() }
+  func cancelEditForTesting() { cancelEdit() }
+  func toggleDetailsForTesting() { toggleDetails() }
 
   func selectMode(_ mode: LibraryMode) {
     modeControl.selectedSegment = mode.rawValue
@@ -357,13 +429,13 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
 
   func setSearch(_ query: String) {
     searchField.stringValue = query
-    if snapshot.mode == .entries { reload() }
+    reload()
   }
 
   func requestSearch(_ query: String) {
     searchField.stringValue = query
     operationMessage = nil
-    if snapshot.mode == .entries { requestReload(preserveInteraction: false) }
+    requestReload(preserveInteraction: false)
   }
 
   func setUnresolvedFilter(_ filter: LibraryUnresolvedFilter) {
@@ -419,7 +491,12 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     NSApp.activate(ignoringOtherApps: true)
     if !window.isVisible { window.center() }
     window.makeKeyAndOrderFront(nil)
-    window.makeFirstResponder(snapshot.mode == .entries ? searchField : listTable)
+    window.contentView?.layoutSubtreeIfNeeded()
+    if librarySplitView.arrangedSubviews.first?.frame.width ?? 0 < 360 {
+      librarySplitView.setPosition(360, ofDividerAt: 0)
+    }
+    listTable.sizeLastColumnToFit()
+    window.makeFirstResponder(snapshot.mode != .unresolved ? searchField : listTable)
     requestReload(preserveInteraction: false)
   }
 
@@ -445,11 +522,12 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     loadTask?.cancel()
     loadTask = nil
     let interaction = captureInteraction()
-    let mode = LibraryMode(rawValue: modeControl.selectedSegment) ?? .entries
+    let mode = LibraryMode(rawValue: modeControl.selectedSegment) ?? .all
+    let modifiedWithin = mode == .recent ? libraryRecentRange(nowMilliseconds: nowMilliseconds()) : nil
     let payload = loadLibraryPayload(
       provider: viewModel, mode: mode, search: searchField.stringValue,
       filter: LibraryUnresolvedFilter(rawValue: filterButton.indexOfSelectedItem) ?? .all,
-      selectedEntryID: interaction.selectedEntryID)
+      selectedEntryID: interaction.selectedEntryID, modifiedWithin: modifiedWithin)
     apply(payload, interaction: interaction)
   }
 
@@ -478,7 +556,8 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
       : LibraryInteractionState(
         selectedEntryID: nil, selectedUnresolvedID: nil, selectedHistoryID: nil, draft: nil,
         draftIsDirty: false)
-    let mode = LibraryMode(rawValue: modeControl.selectedSegment) ?? .entries
+    let mode = LibraryMode(rawValue: modeControl.selectedSegment) ?? .all
+    let modifiedWithin = mode == .recent ? libraryRecentRange(nowMilliseconds: nowMilliseconds()) : nil
     let search = searchField.stringValue
     let filter = LibraryUnresolvedFilter(rawValue: filterButton.indexOfSelectedItem) ?? .all
     let provider = viewModel
@@ -488,7 +567,7 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
       let payload = await Task.detached {
         loadLibraryPayload(
           provider: provider, mode: mode, search: search, filter: filter,
-          selectedEntryID: interaction.selectedEntryID)
+          selectedEntryID: interaction.selectedEntryID, modifiedWithin: modifiedWithin)
       }.value
       guard let self, !Task.isCancelled, generation == self.loadGeneration else { return }
       self.loadTask = nil
@@ -509,7 +588,7 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
   }
 
   private func beginLoadingState() {
-    let mode = LibraryMode(rawValue: modeControl.selectedSegment) ?? .entries
+    let mode = LibraryMode(rawValue: modeControl.selectedSegment) ?? .all
     snapshot = LibrarySnapshot(
       mode: mode, entries: snapshot.entries, unresolved: snapshot.unresolved,
       selectedEntryHistory: snapshot.selectedEntryHistory, state: .loading)
@@ -519,7 +598,7 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
 
   private func captureInteraction() -> LibraryInteractionState {
     let selectedEntry =
-      snapshot.mode == .entries && snapshot.entries.indices.contains(listTable.selectedRow)
+      snapshot.mode != .unresolved && snapshot.entries.indices.contains(listTable.selectedRow)
       ? snapshot.entries[listTable.selectedRow] : nil
     let selectedUnresolved =
       snapshot.mode == .unresolved && snapshot.unresolved.indices.contains(listTable.selectedRow)
@@ -553,11 +632,11 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
 
   private func apply(_ payload: LibraryLoadPayload, interaction: LibraryInteractionState) {
     switch payload {
-    case .entries(let entries, let history, let historyLoadFailed):
+    case .entries(let mode, let entries, let history, let historyLoadFailed):
       hasFailedRows = false
       self.historyLoadFailed = historyLoadFailed
       snapshot = LibrarySnapshot(
-        mode: .entries, entries: entries, unresolved: [], selectedEntryHistory: history,
+        mode: mode, entries: entries, unresolved: [], selectedEntryHistory: history,
         state: entries.isEmpty ? .empty : .loaded(entries.count))
     case .unresolved(let rows, let hasFailedRows):
       self.hasFailedRows = hasFailedRows
@@ -588,7 +667,7 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
   private func restoreInteraction(_ interaction: LibraryInteractionState) {
     restoringSelection = true
     defer { restoringSelection = false }
-    if snapshot.mode == .entries, let id = interaction.selectedEntryID,
+    if snapshot.mode != .unresolved, let id = interaction.selectedEntryID,
       let index = snapshot.entries.firstIndex(where: { $0.id == id })
     {
       listTable.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
@@ -625,7 +704,19 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
 
   func numberOfRows(in tableView: NSTableView) -> Int {
     if tableView === historyTable { return snapshot.selectedEntryHistory.count }
-    return snapshot.mode == .entries ? snapshot.entries.count : snapshot.unresolved.count
+    return snapshot.mode != .unresolved ? snapshot.entries.count : snapshot.unresolved.count
+  }
+
+  func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
+    guard tableView === listTable, snapshot.mode != .unresolved,
+      snapshot.entries.indices.contains(row)
+    else { return 52 }
+    let text = Self.entryRowText(snapshot.entries[row])
+    let bounds = (text as NSString).boundingRect(
+      with: NSSize(width: max(120, listTable.bounds.width - 12), height: .greatestFiniteMagnitude),
+      options: [.usesLineFragmentOrigin, .usesFontLeading],
+      attributes: [.font: NSFont.monospacedSystemFont(ofSize: 15, weight: .medium)])
+    return max(36, ceil(bounds.height) + 10)
   }
 
   func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView?
@@ -634,12 +725,53 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     let value: String
     if tableView === historyTable {
       guard snapshot.selectedEntryHistory.indices.contains(row) else { return nil }
-      value = historyValue(snapshot.selectedEntryHistory[row], column: identifier)
-    } else if snapshot.mode == .entries {
+      let encounter = snapshot.selectedEntryHistory[row]
+      let captured = Self.dateFormatter.string(
+        from: Date(timeIntervalSince1970: TimeInterval(encounter.capturedAtMilliseconds) / 1_000))
+      let field = NSTextField(
+        labelWithString: "\(captured)  •  \(encounter.surfaceForm)\n\(encounter.normalizedText)")
+      field.maximumNumberOfLines = 2
+      field.lineBreakMode = .byTruncatingTail
+      field.setAccessibilityLabel(
+        "Captured \(captured), \(encounter.surfaceForm), \(encounter.normalizedText)")
+      return field
+    } else if snapshot.mode != .unresolved {
       guard snapshot.entries.indices.contains(row) else { return nil }
+      if identifier == "primary" {
+        let entry = snapshot.entries[row]
+        let text = Self.entryRowText(entry)
+        let summary = NSTextField(wrappingLabelWithString: text)
+        summary.font = .monospacedSystemFont(ofSize: 15, weight: .medium)
+        summary.maximumNumberOfLines = 0
+        summary.lineBreakMode = .byWordWrapping
+        summary.cell?.wraps = true
+        summary.cell?.isScrollable = false
+        summary.cell?.truncatesLastVisibleLine = false
+        let modified = Self.dateFormatter.string(
+          from: Date(timeIntervalSince1970: TimeInterval(entry.updatedAtMilliseconds) / 1_000))
+        let type = entry.isPhrase ? "Phrase" : "Word"
+        summary.toolTip = "\(entry.surfaceForm) — \(entry.koreanGloss) • \(type) • \(modified)"
+        summary.setAccessibilityLabel(
+          "\(entry.surfaceForm), \(entry.koreanGloss), \(entry.englishDefinition), \(type), modified \(modified)")
+        return summary
+      }
       value = entryValue(snapshot.entries[row], column: identifier)
     } else {
       guard snapshot.unresolved.indices.contains(row) else { return nil }
+      if identifier == "primary" {
+        let encounter = snapshot.unresolved[row]
+        let field = NSTextField(
+          labelWithString:
+            "\(encounter.surfaceForm)\n\(encounter.status.rawValue.capitalized) — \(encounter.normalizedText)"
+        )
+        field.font = .systemFont(ofSize: 13)
+        field.maximumNumberOfLines = 2
+        field.lineBreakMode = .byTruncatingTail
+        field.toolTip = encounter.normalizedText
+        field.setAccessibilityLabel(
+          "\(encounter.surfaceForm), \(encounter.status.rawValue), \(encounter.normalizedText)")
+        return field
+      }
       value = unresolvedValue(snapshot.unresolved[row], column: identifier)
     }
     let field = NSTextField(labelWithString: value)
@@ -658,7 +790,7 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
   }
 
   func controlTextDidChange(_ obj: Notification) {
-    guard obj.object as? NSSearchField === searchField, snapshot.mode == .entries else { return }
+    guard obj.object as? NSSearchField === searchField else { return }
     operationMessage = nil
     requestReload(preserveInteraction: false)
   }
@@ -667,13 +799,14 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     window.title = "Library"
     window.isReleasedWhenClosed = false
     window.collectionBehavior = [.moveToActiveSpace]
+    window.contentMinSize = NSSize(width: 1_000, height: 600)
     window.setAccessibilityLabel("Galpi Library")
 
     modeControl.selectedSegment = 0
     modeControl.target = self
     modeControl.action = #selector(modeChanged)
     modeControl.setAccessibilityLabel("Library mode")
-    searchField.placeholderString = "Search entries"
+    searchField.placeholderString = "Search library"
     searchField.delegate = self
     searchField.setAccessibilityLabel("Search library")
     filterButton.addItems(withTitles: ["All", "Pending", "Failed"])
@@ -686,11 +819,21 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
       columns: [
         ("primary", "Surface", 190), ("secondary", "Definition", 280), ("state", "State", 120),
       ])
+    listTable.headerView = nil
+    listTable.rowHeight = 36
+    listTable.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+    listTable.tableColumns[0].resizingMask = .autoresizingMask
+    listTable.tableColumns[1].isHidden = true
+    listTable.tableColumns[2].isHidden = true
     configureTable(
       historyTable,
       columns: [
         ("captured", "Captured", 150), ("surface", "Surface", 160), ("language", "Language", 90),
       ])
+    historyTable.headerView = nil
+    historyTable.tableColumns[0].resizingMask = .autoresizingMask
+    historyTable.tableColumns[1].isHidden = true
+    historyTable.tableColumns[2].isHidden = true
     listTable.setAccessibilityLabel("Library items")
     historyTable.setAccessibilityLabel("Encounter history")
 
@@ -716,7 +859,7 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     ])
 
     for button in [
-      saveButton, deleteButton, retryButton, retryAllButton, settingsButton, refreshButton,
+      editButton, saveButton, cancelButton, deleteButton, retryButton, retryAllButton, refreshButton,
     ] {
       button.translatesAutoresizingMaskIntoConstraints = false
     }
@@ -734,17 +877,22 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     deleteButton.setAccessibilityHelp(
       "Permanently delete the selected unresolved lookup, or the selected Entry and linked Encounter history after confirmation."
     )
-    settingsButton.setAccessibilityLabel("Open API key settings")
-    settingsButton.setAccessibilityHelp("Open Keychain-backed OpenAI API key settings.")
+    settingsRailButton.setAccessibilityLabel("Open API key settings")
+    settingsRailButton.setAccessibilityHelp("Open Keychain-backed OpenAI API key settings.")
     refreshButton.setAccessibilityLabel("Refresh Library")
     refreshButton.setAccessibilityHelp("Reload current local SQLite state.")
 
-    let toolbar = NSStackView(views: [modeControl, searchField, filterButton])
-    toolbar.orientation = .horizontal
-    toolbar.spacing = 10
+    let browserTitle = NSTextField(labelWithString: "Library")
+    browserTitle.font = .systemFont(ofSize: 20, weight: .semibold)
+    let searchBar = NSStackView(views: [searchField, refreshButton])
+    searchBar.orientation = .horizontal
+    searchBar.spacing = 8
+    let toolbar = NSStackView(views: [searchBar, modeControl, filterButton])
+    toolbar.orientation = .vertical
+    toolbar.spacing = 8
+    toolbar.alignment = .width
     let actionBar = NSStackView(views: [
-      statusLabel, saveButton, retryButton, retryAllButton, deleteButton, settingsButton,
-      refreshButton,
+      statusLabel, editButton, saveButton, cancelButton, retryButton, retryAllButton, deleteButton,
     ])
     actionBar.orientation = .horizontal
     actionBar.spacing = 8
@@ -757,36 +905,64 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
 
     let content = NSView()
     window.contentView = content
-    for view in [
-      toolbar, listScroll, editorContainer, detailScroll, historyContainer, actionBar,
-    ] {
-      content.addSubview(view)
-    }
+    librarySplitView.translatesAutoresizingMaskIntoConstraints = false
+    content.addSubview(librarySplitView)
+    libraryRailButton.image = NSImage(named: NSImage.homeTemplateName)
+    libraryRailButton.imagePosition = .imageAbove
+    libraryRailButton.setAccessibilityLabel("Library")
+    libraryRailButton.setAccessibilityValue("Selected")
+    libraryRailButton.state = .on
+    settingsRailButton.image = NSImage(named: NSImage.actionTemplateName)
+    settingsRailButton.imagePosition = .imageAbove
+    railView.addArrangedSubview(libraryRailButton)
+    railView.addArrangedSubview(settingsRailButton)
+    railView.orientation = .vertical
+    railView.alignment = .centerX
+    railView.spacing = 12
+    railView.edgeInsets = NSEdgeInsets(top: 16, left: 8, bottom: 16, right: 8)
+    railView.distribution = .gravityAreas
+    railView.setHuggingPriority(.defaultHigh, for: .vertical)
+    railView.wantsLayer = true
+    railView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+    railView.layer?.cornerRadius = 10
+    railView.setAccessibilityLabel("Library navigation")
+    let browser = NSStackView(views: [browserTitle, toolbar, listScroll])
+    browser.orientation = .vertical
+    browser.spacing = 10
+    browser.edgeInsets = NSEdgeInsets(top: 12, left: 12, bottom: 12, right: 12)
+    browser.alignment = .width
+    browser.setCustomSpacing(8, after: browserTitle)
+    browser.setCustomSpacing(14, after: toolbar)
+    let detail = NSStackView(views: [editorContainer, detailScroll, historyContainer, actionBar])
+    detail.orientation = .vertical
+    detail.spacing = 10
+    detail.edgeInsets = NSEdgeInsets(top: 12, left: 12, bottom: 12, right: 12)
+    detail.alignment = .width
+    librarySplitView.addArrangedSubview(browser)
+    librarySplitView.addArrangedSubview(detail)
+    librarySplitView.setHoldingPriority(.defaultHigh, forSubviewAt: 0)
+    librarySplitView.setHoldingPriority(.defaultLow, forSubviewAt: 1)
+    librarySplitView.delegate = self
+    railView.translatesAutoresizingMaskIntoConstraints = false
+    content.addSubview(railView)
     NSLayoutConstraint.activate([
-      toolbar.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 12),
-      toolbar.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -12),
-      toolbar.topAnchor.constraint(equalTo: content.topAnchor, constant: 12),
+      railView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+      railView.topAnchor.constraint(equalTo: content.topAnchor),
+      railView.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+      railView.widthAnchor.constraint(equalToConstant: 96),
+      librarySplitView.leadingAnchor.constraint(equalTo: railView.trailingAnchor),
+      librarySplitView.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+      librarySplitView.topAnchor.constraint(equalTo: content.topAnchor),
+      librarySplitView.bottomAnchor.constraint(equalTo: content.bottomAnchor),
       searchField.widthAnchor.constraint(greaterThanOrEqualToConstant: 240),
-      listScroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 12),
-      listScroll.topAnchor.constraint(equalTo: toolbar.bottomAnchor, constant: 10),
-      listScroll.bottomAnchor.constraint(equalTo: actionBar.topAnchor, constant: -10),
-      listScroll.widthAnchor.constraint(equalTo: content.widthAnchor, multiplier: 0.46),
-      editorContainer.leadingAnchor.constraint(equalTo: listScroll.trailingAnchor, constant: 12),
-      editorContainer.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -12),
-      editorContainer.topAnchor.constraint(equalTo: listScroll.topAnchor),
-      editorContainer.heightAnchor.constraint(equalToConstant: 260),
-      detailScroll.leadingAnchor.constraint(equalTo: editorContainer.leadingAnchor),
-      detailScroll.trailingAnchor.constraint(equalTo: editorContainer.trailingAnchor),
-      detailScroll.topAnchor.constraint(equalTo: editorContainer.topAnchor),
-      detailScroll.bottomAnchor.constraint(equalTo: actionBar.topAnchor, constant: -10),
-      historyContainer.leadingAnchor.constraint(equalTo: editorContainer.leadingAnchor),
-      historyContainer.trailingAnchor.constraint(equalTo: editorContainer.trailingAnchor),
-      historyContainer.topAnchor.constraint(equalTo: editorContainer.bottomAnchor, constant: 10),
-      historyContainer.bottomAnchor.constraint(equalTo: actionBar.topAnchor, constant: -10),
-      actionBar.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 12),
-      actionBar.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -12),
-      actionBar.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -12),
+      editorContainer.heightAnchor.constraint(equalToConstant: 360),
+      editorContainer.widthAnchor.constraint(equalTo: detail.widthAnchor, constant: -24),
+      historyContainer.heightAnchor.constraint(greaterThanOrEqualToConstant: 150),
     ])
+    DispatchQueue.main.async { [weak self] in
+      guard let self else { return }
+      self.librarySplitView.setPosition(360, ofDividerAt: 0)
+    }
     modeControl.nextKeyView = searchField
     searchField.nextKeyView = filterButton
     filterButton.nextKeyView = listTable
@@ -801,11 +977,21 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     saveButton.nextKeyView = retryButton
     retryButton.nextKeyView = retryAllButton
     retryAllButton.nextKeyView = deleteButton
-    deleteButton.nextKeyView = settingsButton
-    settingsButton.nextKeyView = refreshButton
+    deleteButton.nextKeyView = settingsRailButton
+    settingsRailButton.nextKeyView = refreshButton
     refreshButton.nextKeyView = modeControl
     window.initialFirstResponder = searchField
     updateModeVisibility()
+  }
+
+  func splitView(_ splitView: NSSplitView, canCollapseSubview subview: NSView) -> Bool { false }
+  func splitView(_ splitView: NSSplitView, constrainSplitPosition proposedPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
+    let browser: CGFloat = 360
+    let detail: CGFloat = 520
+    let divider = splitView.dividerThickness
+    let lower = browser
+    let upper = splitView.bounds.width - divider - detail
+    return min(max(proposedPosition, lower), max(lower, upper))
   }
 
   private func configureTable(_ table: NSTableView, columns: [(String, String, CGFloat)]) {
@@ -819,6 +1005,11 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     table.dataSource = self
     table.delegate = self
     table.allowsMultipleSelection = false
+    table.rowHeight = 52
+    table.intercellSpacing = NSSize(width: 0, height: 1)
+    table.backgroundColor = .controlBackgroundColor
+    table.usesAlternatingRowBackgroundColors = true
+    table.selectionHighlightStyle = .regular
   }
 
   private func configureEditor() {
@@ -840,17 +1031,50 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
       [NSTextField(labelWithString: "English"), englishField],
       [NSTextField(labelWithString: "Type"), phraseButton],
     ])
+    editMetadataGrid = grid
     grid.translatesAutoresizingMaskIntoConstraints = false
+    grid.rowSpacing = 10
+    grid.columnSpacing = 14
+    grid.wantsLayer = true
+    grid.layer?.backgroundColor = NSColor.textBackgroundColor.cgColor
+    grid.layer?.cornerRadius = 10
+    grid.layer?.borderWidth = 1
+    grid.layer?.borderColor = NSColor.separatorColor.cgColor
+    editorContainer.wantsLayer = true
+    editorContainer.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+    editorContainer.layer?.cornerRadius = 12
     grid.column(at: 0).xPlacement = .trailing
     editorContainer.addSubview(grid)
+    readMetadataContainer.orientation = .vertical
+    readMetadataContainer.alignment = .leading
+    readMetadataContainer.edgeInsets = NSEdgeInsets(top: 14, left: 16, bottom: 14, right: 16)
+    readMetadataContainer.wantsLayer = true
+    readMetadataContainer.layer?.backgroundColor = NSColor.textBackgroundColor.cgColor
+    readMetadataContainer.layer?.cornerRadius = 10
+    readMetadataField.font = .systemFont(ofSize: 18, weight: .medium)
+    readMetadataField.setAccessibilityLabel("Entry metadata")
+    readDetailsField.font = .systemFont(ofSize: 13)
+    readDetailsField.textColor = .secondaryLabelColor
+    readDetailsField.setAccessibilityLabel("Additional Entry metadata")
+    detailsButton.setAccessibilityLabel("Show or hide Entry details")
+    readMetadataContainer.addArrangedSubview(readMetadataField)
+    readMetadataContainer.addArrangedSubview(detailsButton)
+    readMetadataContainer.addArrangedSubview(readDetailsField)
+    readMetadataContainer.translatesAutoresizingMaskIntoConstraints = false
+    editorContainer.addSubview(readMetadataContainer)
     NSLayoutConstraint.activate([
-      grid.leadingAnchor.constraint(equalTo: editorContainer.leadingAnchor),
-      grid.trailingAnchor.constraint(equalTo: editorContainer.trailingAnchor),
-      grid.topAnchor.constraint(equalTo: editorContainer.topAnchor),
       entryContextScroll.leadingAnchor.constraint(equalTo: editorContainer.leadingAnchor),
       entryContextScroll.trailingAnchor.constraint(equalTo: editorContainer.trailingAnchor),
-      entryContextScroll.topAnchor.constraint(equalTo: grid.bottomAnchor, constant: 8),
-      entryContextScroll.bottomAnchor.constraint(equalTo: editorContainer.bottomAnchor),
+      entryContextScroll.topAnchor.constraint(equalTo: editorContainer.topAnchor),
+      entryContextScroll.heightAnchor.constraint(equalToConstant: 150),
+      grid.leadingAnchor.constraint(equalTo: editorContainer.leadingAnchor),
+      grid.trailingAnchor.constraint(equalTo: editorContainer.trailingAnchor),
+      grid.topAnchor.constraint(equalTo: entryContextScroll.bottomAnchor, constant: 10),
+      grid.bottomAnchor.constraint(equalTo: editorContainer.bottomAnchor),
+      readMetadataContainer.leadingAnchor.constraint(equalTo: editorContainer.leadingAnchor),
+      readMetadataContainer.trailingAnchor.constraint(equalTo: editorContainer.trailingAnchor),
+      readMetadataContainer.topAnchor.constraint(equalTo: entryContextScroll.bottomAnchor, constant: 10),
+      readMetadataContainer.bottomAnchor.constraint(equalTo: editorContainer.bottomAnchor),
     ])
   }
 
@@ -864,6 +1088,8 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
       textView.isSelectable = true
       textView.font = .systemFont(ofSize: 13)
       textView.textContainerInset = NSSize(width: 8, height: 8)
+      textView.drawsBackground = true
+      textView.backgroundColor = .textBackgroundColor
       textView.setAccessibilityLabel(label)
       scroll.documentView = textView
       scroll.hasVerticalScroller = true
@@ -872,14 +1098,21 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     entryContextText.isEditable = false
     entryContextText.isSelectable = true
     entryContextText.isRichText = true
-    entryContextText.font = .systemFont(ofSize: 13)
-    entryContextText.textContainerInset = NSSize(width: 8, height: 8)
+    entryContextText.font = .systemFont(ofSize: 24, weight: .medium)
+    entryContextText.alignment = .center
+    entryContextText.textContainerInset = NSSize(width: 20, height: 30)
+    entryContextText.drawsBackground = true
+    entryContextText.backgroundColor = .textBackgroundColor
     entryContextText.setAccessibilityLabel("Entry context")
     entryContextText.setAccessibilityHelp(
       "Read-only captured sentence context; selected surface is highlighted.")
     entryContextScroll.documentView = entryContextText
     entryContextScroll.hasVerticalScroller = true
     entryContextScroll.borderType = .bezelBorder
+    entryContextScroll.wantsLayer = true
+    entryContextScroll.layer?.cornerRadius = 12
+    entryContextScroll.layer?.borderWidth = 1
+    entryContextScroll.layer?.borderColor = NSColor.separatorColor.cgColor
   }
 
   private func scrollView(for table: NSTableView) -> NSScrollView {
@@ -887,6 +1120,8 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     scroll.documentView = table
     scroll.hasVerticalScroller = true
     scroll.borderType = .bezelBorder
+    scroll.drawsBackground = true
+    scroll.backgroundColor = .controlBackgroundColor
     return scroll
   }
 
@@ -894,8 +1129,9 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     switch snapshot.state {
     case .loading: statusLabel.stringValue = "Loading…"
     case .empty:
-      statusLabel.stringValue =
-        snapshot.mode == .entries ? "No saved entries" : "No unresolved lookups"
+      statusLabel.stringValue = snapshot.mode == .unresolved
+        ? "No unresolved lookups"
+        : (snapshot.mode == .recent ? "No recent entries" : "No saved entries")
     case .loaded(let count): statusLabel.stringValue = "\(count) item\(count == 1 ? "" : "s")"
     case .failed: statusLabel.stringValue = "Unable to load the local library"
     }
@@ -907,23 +1143,100 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
   }
 
   private func updateModeVisibility() {
-    let entries = snapshot.mode == .entries
-    searchField.isEnabled = entries
+    let entries = snapshot.mode != .unresolved
+    let hasSelectedEntry = entries && snapshot.entries.indices.contains(listTable.selectedRow)
+
+    searchField.isEnabled = true
     filterButton.isHidden = entries
     editorContainer.isHidden = !entries
     historyContainer.isHidden = !entries
     detailScroll.isHidden = entries
     retryButton.isHidden = entries
     retryAllButton.isHidden = entries
-    saveButton.isHidden = !entries
-    listTable.nextKeyView = entries ? languageButton : detailText
-    detailText.nextKeyView = retryButton
+    saveButton.isHidden = !entries || !isEditingEntry
+    cancelButton.isHidden = !entries || !isEditingEntry
+    editButton.isHidden = !hasSelectedEntry || isEditingEntry
+    let canEdit = entries && isEditingEntry
+    [surfaceField, koreanField, englishField, languageButton, phraseButton].forEach {
+      $0.isEnabled = canEdit
+    }
+    editMetadataGrid?.isHidden = !canEdit
+    readMetadataContainer.isHidden = !hasSelectedEntry || canEdit
+    detailsButton.isHidden = !hasSelectedEntry || canEdit
+    readDetailsField.isHidden = !entries || canEdit || !showsEntryDetails
+    detailsButton.title = showsEntryDetails ? "Hide Details" : "Show Details"
+    rebuildKeyLoop(entries: entries, hasSelectedEntry: hasSelectedEntry)
+  }
+
+  private func rebuildKeyLoop(entries: Bool, hasSelectedEntry: Bool) {
+    if entries {
+      searchField.nextKeyView = listTable
+      if isEditingEntry {
+        listTable.nextKeyView = languageButton
+        languageButton.nextKeyView = surfaceField
+        surfaceField.nextKeyView = koreanField
+        koreanField.nextKeyView = englishField
+        englishField.nextKeyView = phraseButton
+        phraseButton.nextKeyView = historyTable
+        historyTable.nextKeyView = historyDetailText
+        historyDetailText.nextKeyView = saveButton
+        saveButton.nextKeyView = cancelButton
+        cancelButton.nextKeyView = deleteButton
+      } else {
+        listTable.nextKeyView = hasSelectedEntry ? editButton : historyTable
+        editButton.nextKeyView = detailsButton
+        detailsButton.nextKeyView = historyTable
+        historyTable.nextKeyView = historyDetailText
+        historyDetailText.nextKeyView = deleteButton
+      }
+      deleteButton.nextKeyView = settingsRailButton
+    } else {
+      searchField.nextKeyView = filterButton
+      filterButton.nextKeyView = listTable
+      listTable.nextKeyView = retryButton.isHidden ? deleteButton : retryButton
+      retryButton.nextKeyView = retryAllButton.isHidden ? deleteButton : retryAllButton
+      retryAllButton.nextKeyView = deleteButton
+      deleteButton.nextKeyView = settingsRailButton
+    }
+    settingsRailButton.nextKeyView = refreshButton
+    refreshButton.nextKeyView = modeControl
+    modeControl.nextKeyView = searchField
+  }
+
+  @objc private func beginEdit() {
+    guard snapshot.mode != .unresolved,
+      snapshot.entries.indices.contains(listTable.selectedRow)
+    else { return }
+    isEditingEntry = true
+    [surfaceField, koreanField, englishField, languageButton, phraseButton].forEach { $0.isEnabled = true }
+    updateModeVisibility(); updateButtons()
+  }
+
+  @objc private func toggleDetails() {
+    guard snapshot.mode != .unresolved,
+      snapshot.entries.indices.contains(listTable.selectedRow)
+    else { return }
+    showsEntryDetails.toggle()
+    updateModeVisibility()
+  }
+
+  @objc private func cancelEdit() {
+    isEditingEntry = false
+    if snapshot.mode != .unresolved, snapshot.entries.indices.contains(listTable.selectedRow) {
+      populateEditor(snapshot.entries[listTable.selectedRow])
+    } else {
+      clearDetail()
+    }
+    updateModeVisibility(); updateButtons()
   }
 
   private func clearDetail(resetHistory: Bool = true) {
     surfaceField.stringValue = ""
     koreanField.stringValue = ""
     englishField.stringValue = ""
+    readMetadataField.stringValue = ""
+    readDetailsField.stringValue = ""
+    showsEntryDetails = false
     phraseButton.state = .off
     languageButton.selectItem(at: 0)
     detailText.string = "Select an item"
@@ -938,26 +1251,35 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
   }
 
   private func populateEditor(_ entry: EntryRecord) {
+    isEditingEntry = false
+    showsEntryDetails = false
     surfaceField.stringValue = entry.surfaceForm
     koreanField.stringValue = entry.koreanGloss
     englishField.stringValue = entry.englishDefinition
     phraseButton.state = entry.isPhrase ? .on : .off
     languageButton.selectItem(withTitle: entry.language.rawValue)
+    readMetadataField.stringValue = "\(entry.surfaceForm)  —  \(entry.koreanGloss)"
+    readDetailsField.stringValue = [
+      "Language  \(entry.language.rawValue)",
+      "English  \(entry.englishDefinition)",
+      "Type  \(entry.isPhrase ? "Phrase" : "Word")",
+    ].joined(separator: "\n")
     showEntryContext(entry)
   }
 
   private func showSelection() {
     let row = listTable.selectedRow
-    if snapshot.mode == .entries {
+    if snapshot.mode != .unresolved {
       guard snapshot.entries.indices.contains(row) else {
         clearDetail()
+        updateModeVisibility()
         updateButtons()
         return
       }
       let entry = snapshot.entries[row]
       populateEditor(entry)
       snapshot = LibrarySnapshot(
-        mode: .entries, entries: snapshot.entries, unresolved: [], selectedEntryHistory: [],
+        mode: snapshot.mode, entries: snapshot.entries, unresolved: [], selectedEntryHistory: [],
         state: snapshot.state)
       historyTable.reloadData()
       historyDetailText.string = "Select an Encounter"
@@ -971,6 +1293,7 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
       }
       detailText.string = Self.encounterDetail(snapshot.unresolved[row])
     }
+    updateModeVisibility()
     updateButtons()
   }
 
@@ -1004,19 +1327,39 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
       return
     }
     let text = NSMutableAttributedString(string: sentence)
+    let paragraph = NSMutableParagraphStyle()
+    paragraph.alignment = .center
+    text.addAttributes([
+      .font: NSFont.systemFont(ofSize: 24, weight: .medium),
+      .paragraphStyle: paragraph,
+      .foregroundColor: NSColor.labelColor,
+    ], range: NSRange(location: 0, length: text.length))
     text.addAttributes([
       .backgroundColor: NSColor.selectedTextBackgroundColor.withAlphaComponent(0.35),
+      .foregroundColor: NSColor.systemBlue,
       .underlineStyle: NSUnderlineStyle.single.rawValue,
     ], range: range)
     entryContextText.textStorage?.setAttributedString(text)
+    entryContextText.textContainerInset = NSSize(width: 18, height: 48)
     entryContextText.setAccessibilityValue("Context available; selected surface highlighted")
     entryContextText.scrollRangeToVisible(range)
   }
 
   private func showNoEntryContext() {
-    entryContextText.string = "No context available"
+    entryContextText.string = ""
     entryContextText.setAccessibilityValue("No context available")
+    entryContextText.textContainerInset = NSSize(width: 18, height: 48)
     entryContextText.scroll(NSPoint(x: 0, y: 0))
+  }
+
+  private static func entryRowText(_ entry: EntryRecord) -> String {
+    if entry.koreanGloss.count > 9 {
+      return "\(entry.surfaceForm)\n\(entry.koreanGloss)"
+    }
+    let spacing = String(
+      repeating: " ",
+      count: max(3, 20 - entry.surfaceForm.count - entry.koreanGloss.count))
+    return "\(entry.surfaceForm)\(spacing)\(entry.koreanGloss)"
   }
 
   private static func enclosingCharacterRange(_ range: NSRange, in text: String) -> NSRange {
@@ -1033,7 +1376,7 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
 
   private func updateButtons() {
     let row = listTable.selectedRow
-    let hasEntry = snapshot.mode == .entries && snapshot.entries.indices.contains(row)
+    let hasEntry = snapshot.mode != .unresolved && snapshot.entries.indices.contains(row)
     let encounter =
       snapshot.mode == .unresolved && snapshot.unresolved.indices.contains(row)
       ? snapshot.unresolved[row] : nil
@@ -1060,7 +1403,9 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
 
   @objc func saveEntry() {
     let row = listTable.selectedRow
-    guard snapshot.mode == .entries, snapshot.entries.indices.contains(row) else { return }
+    guard isEditingEntry, snapshot.mode != .unresolved,
+      snapshot.entries.indices.contains(row)
+    else { return }
     let entry = snapshot.entries[row]
     let language =
       languageButton.titleOfSelectedItem.flatMap(EncounterLanguage.init(rawValue:)) ?? .und
@@ -1079,8 +1424,9 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
       }
       var entries = snapshot.entries
       entries[row] = saved
+      isEditingEntry = false
       snapshot = LibrarySnapshot(
-        mode: .entries, entries: entries, unresolved: [],
+        mode: snapshot.mode, entries: entries, unresolved: [],
         selectedEntryHistory: snapshot.selectedEntryHistory, state: snapshot.state)
       populateEditor(saved)
       setOperationMessage("Entry saved")
@@ -1094,7 +1440,7 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
 
   @objc func deleteSelected() {
     let row = listTable.selectedRow
-    if snapshot.mode == .entries {
+    if snapshot.mode != .unresolved {
       guard snapshot.entries.indices.contains(row) else { return }
       let entry = snapshot.entries[row]
       do {
@@ -1162,16 +1508,6 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     }
   }
 
-  private func historyValue(_ encounter: EncounterRecord, column: String) -> String {
-    switch column {
-    case "captured":
-      Self.dateFormatter.string(
-        from: Date(timeIntervalSince1970: TimeInterval(encounter.capturedAtMilliseconds) / 1_000))
-    case "surface": encounter.surfaceForm
-    case "language": encounter.language.rawValue.capitalized
-    default: ""
-    }
-  }
 
   private static func encounterDetail(_ encounter: EncounterRecord) -> String {
     let retry = encounter.nextRetryAtMilliseconds.map { String($0) } ?? "Not scheduled"

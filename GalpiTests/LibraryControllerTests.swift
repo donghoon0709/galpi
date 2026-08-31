@@ -3,6 +3,14 @@ import XCTest
 
 @MainActor
 final class LibraryControllerTests: XCTestCase {
+  func testRecentRangeIsInclusiveAndNonnegative() {
+    let now: Int64 = 30 * 24 * 60 * 60 * 1_000 + 5
+    let range = libraryRecentRange(nowMilliseconds: now)
+    XCTAssertEqual(range.upperBound, now)
+    XCTAssertEqual(range.lowerBound, 5)
+    XCTAssertEqual(libraryRecentRange(nowMilliseconds: -1), 0...0)
+  }
+
   func testActionPolicyRetriesOnlyFailedRowsAndDeletionCopyCountsHistory() throws {
     let failed = encounter(id: "failed", status: .failed, capturedAt: 3)
     let pending = encounter(id: "pending", status: .pending, capturedAt: 2)
@@ -58,21 +66,29 @@ final class LibraryControllerTests: XCTestCase {
     XCTAssertTrue(controller.hasSettingsAction)
     XCTAssertTrue(controller.hasKeyboardOrder)
     XCTAssertTrue(controller.hasCompleteAccessibilityContract)
+    XCTAssertEqual(controller.railAccessibilityState.label, "Library")
+    XCTAssertEqual(controller.railAccessibilityState.value, "Selected")
+    XCTAssertTrue(controller.activeKeyLoopExcludesHiddenControls)
     XCTAssertEqual(controller.searchControlState.isHidden, false)
     XCTAssertEqual(controller.searchControlState.isEnabled, true)
     XCTAssertEqual(controller.filterControlState.isHidden, true)
 
     controller.selectRow(0)
-    spin(milliseconds: 500)
+    spinUntil(timeoutMilliseconds: 3_000) {
+      controller.snapshot.selectedEntryHistory.map(\.id) == ["complete"]
+    }
     XCTAssertEqual(controller.snapshot.selectedEntryHistory.map(\.id), ["complete"])
+    XCTAssertFalse(controller.entryEditorIsEnabled)
     controller.selectHistoryRow(0)
     XCTAssertGreaterThan(controller.completedEncounterDetailLength, 40)
     XCTAssertTrue(controller.isSaveEnabled)
     XCTAssertTrue(controller.isDeleteEnabled)
+    controller.beginEditForTesting()
+    XCTAssertTrue(controller.entryEditorIsEnabled)
     controller.setEditor(
       language: .japanese, surfaceForm: " 用語 ", koreanGloss: "용어",
       englishDefinition: "edited meaning", isPhrase: true)
-    controller.saveEntry()
+    controller.saveEntryForTesting()
     let edited = try XCTUnwrap(database.fetchEntry(id: "entry"))
     XCTAssertEqual(controller.editorSurface, "用語")
     XCTAssertEqual(edited.language, .japanese)
@@ -86,10 +102,18 @@ final class LibraryControllerTests: XCTestCase {
     controller.selectMode(.unresolved)
     XCTAssertEqual(controller.snapshot.unresolved.map(\.id), ["failed", "pending"])
     XCTAssertEqual(controller.searchControlState.isHidden, false)
-    XCTAssertEqual(controller.searchControlState.isEnabled, false)
+    XCTAssertEqual(controller.searchControlState.isEnabled, true)
     XCTAssertEqual(controller.filterControlState.isHidden, false)
     XCTAssertEqual(controller.filterControlState.isEnabled, true)
+    XCTAssertEqual(controller.filterAccessibilityLabel, "Lookup status filter")
+    XCTAssertTrue(controller.activeKeyLoopExcludesHiddenControls)
     XCTAssertTrue(controller.isRetryAllEnabled)
+    controller.setSearch("SYNTHETIC")
+    XCTAssertEqual(controller.snapshot.unresolved.map(\.id), ["failed", "pending"])
+    controller.setSearch("absent")
+    XCTAssertEqual(controller.snapshot.unresolved, [])
+    XCTAssertTrue(controller.isRetryAllEnabled)
+    controller.setSearch("")
     controller.selectRow(0)
     XCTAssertTrue(controller.isRetryEnabled)
 
@@ -98,6 +122,103 @@ final class LibraryControllerTests: XCTestCase {
     controller.selectRow(0)
     XCTAssertFalse(controller.isRetryEnabled)
     XCTAssertTrue(controller.isRetryAllEnabled)
+    controller.close()
+  }
+
+  func testRecentSelectionPreservesRecentMode() throws {
+    let database = try AppDatabase.inMemory()
+    _ = try database.createPending(input("recent", capturedAt: 1), nowMilliseconds: 1)
+    _ = try database.complete(
+      encounterID: "recent", expectedGeneration: 0,
+      entry: EntryPayload(
+        id: "recent-entry", language: .english, headwordKey: "recent",
+        surfaceForm: "recent", koreanGloss: "최근", englishDefinition: "recent",
+        isPhrase: false),
+      nowMilliseconds: 2)
+    let controller = LibraryController(database: database, nowMilliseconds: { 10 })
+    controller.selectMode(.recent)
+    controller.selectRow(0)
+    XCTAssertEqual(controller.snapshot.mode, .recent)
+    XCTAssertFalse(controller.entryEditorIsEnabled)
+    XCTAssertFalse(controller.entryDetailsAreVisible)
+    XCTAssertEqual(controller.readSummaryText, "recent  —  최근")
+    XCTAssertTrue(controller.readDetailsText.contains("English  recent"))
+    controller.toggleDetailsForTesting()
+    XCTAssertTrue(controller.entryDetailsAreVisible)
+    controller.selectRow(0)
+    XCTAssertFalse(controller.entryDetailsAreVisible)
+    controller.beginEditForTesting()
+    XCTAssertTrue(controller.entryEditorIsEnabled)
+    controller.setEditor(
+      language: .japanese, surfaceForm: "draft", koreanGloss: "초안",
+      englishDefinition: "draft", isPhrase: true)
+    controller.cancelEditForTesting()
+    XCTAssertFalse(controller.entryEditorIsEnabled)
+    XCTAssertEqual(controller.editorSurface, "recent")
+    XCTAssertFalse(controller.entryDetailsAreVisible)
+    controller.close()
+  }
+
+  func testRecentRecomputesCapturedRangeWithoutMutatingEntry() throws {
+    let database = try AppDatabase.inMemory()
+    let duration = libraryRecentWindowMilliseconds
+    var now: Int64 = duration + 10
+    _ = try database.createPending(input("boundary", capturedAt: 1), nowMilliseconds: 1)
+    _ = try database.complete(
+      encounterID: "boundary", expectedGeneration: 0,
+      entry: EntryPayload(
+        id: "boundary-entry", language: .english, headwordKey: "boundary",
+        surfaceForm: "boundary", koreanGloss: "경계", englishDefinition: "boundary",
+        isPhrase: false),
+      nowMilliseconds: 10)
+    // Move the persisted timestamp to the exact initial lower bound without
+    // changing any application write semantics.
+    try database.databaseQueue.write { db in
+      try db.execute(sql: "UPDATE entries SET updated_at_ms = ? WHERE id = ?",
+        arguments: [10, "boundary-entry"])
+    }
+    var clockCalls = 0
+    let controller = LibraryController(database: database, nowMilliseconds: {
+      clockCalls += 1
+      return now
+    })
+    controller.selectMode(.recent)
+    XCTAssertEqual(clockCalls, 1)
+    XCTAssertEqual(controller.snapshot.entries.map(\.id), ["boundary-entry"])
+    XCTAssertEqual(try database.fetchEntry(id: "boundary-entry")?.updatedAtMilliseconds, 10)
+
+    now += 1
+    controller.reload()
+    XCTAssertEqual(clockCalls, 2)
+    XCTAssertTrue(controller.snapshot.entries.isEmpty)
+    XCTAssertEqual(try database.fetchEntry(id: "boundary-entry")?.updatedAtMilliseconds, 10)
+
+    controller.selectMode(.all)
+    controller.reload()
+    controller.selectMode(.unresolved)
+    controller.reload()
+    XCTAssertEqual(clockCalls, 2)
+    controller.close()
+  }
+
+  func testSplitDividerBoundsAndContentMinimumSize() throws {
+    let controller = LibraryController(database: try AppDatabase.inMemory())
+    controller.show()
+    spin(milliseconds: 50)
+    XCTAssertGreaterThanOrEqual(controller.libraryContentMinimumSize.width, CGFloat(1_000))
+    XCTAssertGreaterThanOrEqual(controller.libraryContentMinimumSize.height, CGFloat(600))
+    XCTAssertGreaterThanOrEqual(controller.editorLayoutHeights.hero, 150)
+    XCTAssertGreaterThanOrEqual(controller.editorLayoutHeights.metadata, 150)
+    let rail = controller.railLayoutState
+    XCTAssertGreaterThanOrEqual(rail.width, 96)
+    XCTAssertTrue(rail.libraryInside)
+    XCTAssertTrue(rail.settingsInside)
+    let browserMinimum = CGFloat(360)
+    XCTAssertEqual(
+      controller.constrainedDividerPosition(-1, dividerIndex: 0), browserMinimum)
+    XCTAssertEqual(
+      controller.constrainedDividerPosition(.greatestFiniteMagnitude, dividerIndex: 0),
+      max(browserMinimum, controller.secondDividerUpperBound))
     controller.close()
   }
 
@@ -116,7 +237,7 @@ final class LibraryControllerTests: XCTestCase {
     }
     controller.notifyDatabaseChanged()
     controller.notifyDatabaseChanged()
-    spin(milliseconds: 50)
+    spinUntil { controller.reloadCount == baseline + 1 }
     XCTAssertEqual(controller.reloadCount, baseline + 1)
     XCTAssertEqual(controller.snapshot.entries.map(\.id), ["entry"])
 
@@ -133,7 +254,7 @@ final class LibraryControllerTests: XCTestCase {
     let dirtyBaseline = controller.reloadCount
     controller.notifyDatabaseChanged()
     controller.notifyDatabaseChanged()
-    spin(milliseconds: 50)
+    spinUntil { controller.reloadCount == dirtyBaseline + 1 }
     XCTAssertEqual(controller.reloadCount, dirtyBaseline + 1)
     XCTAssertEqual(controller.editorSurface, "unsaved draft")
     XCTAssertTrue(controller.isSaveEnabled)
@@ -285,7 +406,8 @@ final class LibraryControllerTests: XCTestCase {
 
     controller.selectRow(1)
     spin(milliseconds: 100)
-    XCTAssertEqual(controller.displayedEntryContext, "No context available")
+    XCTAssertEqual(controller.displayedEntryContext, "")
+    XCTAssertEqual(controller.entryContextAccessibilityValue, "No context available")
     XCTAssertNil(controller.entryContextHighlightRange)
 
     controller.selectRow(2)
@@ -297,6 +419,16 @@ final class LibraryControllerTests: XCTestCase {
 
   private func spin(milliseconds: Int) {
     RunLoop.current.run(until: Date().addingTimeInterval(Double(milliseconds) / 1_000))
+  }
+
+  private func spinUntil(
+    timeoutMilliseconds: Int = 1_000,
+    condition: () -> Bool
+  ) {
+    let deadline = Date().addingTimeInterval(Double(timeoutMilliseconds) / 1_000)
+    while !condition(), Date() < deadline {
+      RunLoop.current.run(until: min(deadline, Date().addingTimeInterval(0.01)))
+    }
   }
 
   private func input(_ id: String, capturedAt: Int64) -> PendingEncounterInput {
@@ -322,7 +454,7 @@ final class LibraryControllerTests: XCTestCase {
 }
 
 private struct ContextLibraryDataProvider: LibraryDataProviding {
-  func entries(search: String) throws -> [EntryRecord] {
+  func entries(search: String, modifiedWithin: ClosedRange<Int64>?) throws -> [EntryRecord] {
     [
       EntryRecord(
         id: "valid", language: .english, headwordKey: "term", surfaceForm: "term",
@@ -356,7 +488,7 @@ private struct ContextLibraryDataProvider: LibraryDataProviding {
 private struct ThrowingLibraryDataProvider: LibraryDataProviding {
   struct Failure: Error {}
 
-  func entries(search: String) throws -> [EntryRecord] { throw Failure() }
+  func entries(search: String, modifiedWithin: ClosedRange<Int64>?) throws -> [EntryRecord] { throw Failure() }
   func unresolved(filter: LibraryUnresolvedFilter) throws -> [EncounterRecord] { throw Failure() }
   func history(entryID: String) throws -> [EncounterRecord] { throw Failure() }
   func updateEntry(id: String, input: EntryEditInput, nowMilliseconds: Int64) throws
@@ -371,7 +503,7 @@ private struct ThrowingLibraryDataProvider: LibraryDataProviding {
 private struct HistoryFailureDataProvider: LibraryDataProviding {
   struct Failure: Error {}
 
-  func entries(search: String) throws -> [EntryRecord] {
+  func entries(search: String, modifiedWithin: ClosedRange<Int64>?) throws -> [EntryRecord] {
     [
       entry(id: "with-history", createdAt: 1),
       entry(id: "history-error", createdAt: 2),
@@ -412,7 +544,7 @@ private struct HistoryFailureDataProvider: LibraryDataProviding {
 }
 
 private final class StaleSearchDataProvider: LibraryDataProviding, @unchecked Sendable {
-  func entries(search: String) throws -> [EntryRecord] {
+  func entries(search: String, modifiedWithin: ClosedRange<Int64>?) throws -> [EntryRecord] {
     if search == "slow" { Thread.sleep(forTimeInterval: 0.2) }
     guard search == "slow" || search == "fast" else { return [] }
     return [
@@ -443,7 +575,7 @@ private final class InFlightDraftDataProvider: LibraryDataProviding, @unchecked 
     lock.withLock { shouldDelayAndFailHistory = true }
   }
 
-  func entries(search: String) throws -> [EntryRecord] {
+  func entries(search: String, modifiedWithin: ClosedRange<Int64>?) throws -> [EntryRecord] {
     if lock.withLock({ shouldDelayAndFailHistory }) {
       Thread.sleep(forTimeInterval: 0.15)
     }

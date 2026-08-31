@@ -306,26 +306,52 @@ internal final class AppDatabase: @unchecked Sendable {
     try databaseQueue.read { try Self.fetchEntry($0, id: id) }
   }
 
-  func listEntries(search: String = "") throws -> [EntryRecord] {
+  func listEntries(search: String = "", modifiedWithin: ClosedRange<Int64>? = nil) throws -> [EntryRecord] {
     try databaseQueue.read { database in
       let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
       let rows: [Row]
+      let bounds = modifiedWithin.map { _ in "updated_at_ms >= ? AND updated_at_ms <= ?" }
       if query.isEmpty {
+        if let modifiedWithin {
+          rows = try Row.fetchAll(
+            database,
+            sql: "SELECT * FROM entries WHERE updated_at_ms >= ? AND updated_at_ms <= ? ORDER BY updated_at_ms DESC, created_at_ms DESC, id",
+            arguments: [modifiedWithin.lowerBound, modifiedWithin.upperBound])
+        } else {
         rows = try Row.fetchAll(
           database,
           sql: "SELECT * FROM entries ORDER BY updated_at_ms DESC, created_at_ms DESC, id")
+        }
       } else {
         let pattern = "%\(Self.escapedLikePattern(query))%"
-        rows = try Row.fetchAll(
-          database,
-          sql: """
-            SELECT * FROM entries
-            WHERE surface_form LIKE ? ESCAPE '\\' COLLATE NOCASE
-               OR korean_gloss LIKE ? ESCAPE '\\' COLLATE NOCASE
-               OR english_definition LIKE ? ESCAPE '\\' COLLATE NOCASE
-            ORDER BY updated_at_ms DESC, created_at_ms DESC, id
-            """,
-          arguments: [pattern, pattern, pattern])
+        let predicate = bounds.map { "AND \($0)" } ?? ""
+        if let modifiedWithin {
+          rows = try Row.fetchAll(
+            database,
+            sql: """
+              SELECT * FROM entries
+              WHERE (surface_form LIKE ? ESCAPE '\\' COLLATE NOCASE
+                 OR korean_gloss LIKE ? ESCAPE '\\' COLLATE NOCASE
+                 OR english_definition LIKE ? ESCAPE '\\' COLLATE NOCASE)
+              \(predicate)
+              ORDER BY updated_at_ms DESC, created_at_ms DESC, id
+              """,
+            arguments: [
+              pattern, pattern, pattern, modifiedWithin.lowerBound, modifiedWithin.upperBound,
+            ])
+        } else {
+          rows = try Row.fetchAll(
+            database,
+            sql: """
+              SELECT * FROM entries
+              WHERE (surface_form LIKE ? ESCAPE '\\' COLLATE NOCASE
+                 OR korean_gloss LIKE ? ESCAPE '\\' COLLATE NOCASE
+                 OR english_definition LIKE ? ESCAPE '\\' COLLATE NOCASE)
+              \(predicate)
+              ORDER BY updated_at_ms DESC, created_at_ms DESC, id
+              """,
+            arguments: [pattern, pattern, pattern])
+        }
       }
       return try rows.map { try Self.entry(from: $0) }
     }
