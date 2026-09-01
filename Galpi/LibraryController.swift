@@ -1,6 +1,24 @@
 import AppKit
 import Foundation
 
+private final class LibrarySplitView: NSSplitView {
+  override var dividerThickness: CGFloat { 10 }
+
+  override func drawDivider(in rect: NSRect) {
+    NSColor.separatorColor.setFill()
+    rect.fill()
+  }
+}
+
+private final class AppearanceAwareView: NSView {
+  var appearanceDidChange: (() -> Void)?
+
+  override func viewDidChangeEffectiveAppearance() {
+    super.viewDidChangeEffectiveAppearance()
+    appearanceDidChange?()
+  }
+}
+
 internal enum LibraryMode: Int, CaseIterable, Sendable {
   case all
   case recent
@@ -230,8 +248,9 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
   private let window: NSWindow
   private let railView = NSStackView()
   private let librarySplitView: NSSplitView = {
-    let split = NSSplitView()
+    let split = LibrarySplitView()
     split.isVertical = true
+    split.dividerStyle = .paneSplitter
     split.setAccessibilityLabel("Library regions")
     return split
   }()
@@ -338,8 +357,41 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
   func constrainedDividerPosition(_ position: CGFloat, dividerIndex: Int) -> CGFloat {
     splitView(librarySplitView, constrainSplitPosition: position, ofSubviewAt: dividerIndex)
   }
+  func setDividerPositionForTesting(_ position: CGFloat) {
+    window.contentView?.layoutSubtreeIfNeeded()
+    librarySplitView.setPosition(position, ofDividerAt: 0)
+    librarySplitView.layoutSubtreeIfNeeded()
+  }
+  var libraryWindowFrame: NSRect { window.frame }
+  @discardableResult
+  func setWindowFrameForTesting(_ frame: NSRect) -> NSRect {
+    window.setFrame(frame, display: true)
+    window.contentView?.layoutSubtreeIfNeeded()
+    return window.frame
+  }
+  var railButtonTopInset: CGFloat {
+    railView.bounds.maxY - railView.convert(libraryRailButton.frame, from: libraryRailButton.superview).maxY
+  }
+  var libraryPaneWidths: (browser: CGFloat, detail: CGFloat) {
+    let panes = librarySplitView.arrangedSubviews
+    guard panes.count == 2 else { return (0, 0) }
+    return (panes[0].frame.width, panes[1].frame.width)
+  }
+  func setAppearanceForTesting(_ appearance: NSAppearance) {
+    window.appearance = appearance
+    updateLayerColors()
+  }
+  var styledLayerColors: [CGColor?] {
+    [
+      railView.layer?.backgroundColor,
+      editorContainer.layer?.backgroundColor,
+      readMetadataContainer.layer?.backgroundColor,
+      editMetadataGrid?.layer?.backgroundColor,
+      entryContextScroll.layer?.borderColor,
+    ]
+  }
   var secondDividerUpperBound: CGFloat {
-    librarySplitView.bounds.width - librarySplitView.dividerThickness - 520
+    librarySplitView.bounds.width - librarySplitView.dividerThickness - 420
   }
   var railLayoutState: (width: CGFloat, libraryInside: Bool, settingsInside: Bool) {
     let bounds = railView.bounds
@@ -492,9 +544,6 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     if !window.isVisible { window.center() }
     window.makeKeyAndOrderFront(nil)
     window.contentView?.layoutSubtreeIfNeeded()
-    if librarySplitView.arrangedSubviews.first?.frame.width ?? 0 < 360 {
-      librarySplitView.setPosition(360, ofDividerAt: 0)
-    }
     listTable.sizeLastColumnToFit()
     window.makeFirstResponder(snapshot.mode != .unresolved ? searchField : listTable)
     requestReload(preserveInteraction: false)
@@ -903,7 +952,10 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
       control.translatesAutoresizingMaskIntoConstraints = false
     }
 
-    let content = NSView()
+    let content = AppearanceAwareView()
+    content.appearanceDidChange = { [weak self] in
+      self?.updateLayerColors()
+    }
     window.contentView = content
     librarySplitView.translatesAutoresizingMaskIntoConstraints = false
     content.addSubview(librarySplitView)
@@ -921,9 +973,11 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     railView.spacing = 12
     railView.edgeInsets = NSEdgeInsets(top: 16, left: 8, bottom: 16, right: 8)
     railView.distribution = .gravityAreas
-    railView.setHuggingPriority(.defaultHigh, for: .vertical)
+    // The rail is pinned to both the top and bottom of the content view, so it must not hug
+    // vertically: a hugging priority above the window's own stay-put priority lets Auto Layout
+    // drive the window height and shove the window up the screen on every resize.
+    railView.setHuggingPriority(.defaultLow, for: .vertical)
     railView.wantsLayer = true
-    railView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
     railView.layer?.cornerRadius = 10
     railView.setAccessibilityLabel("Library navigation")
     let browser = NSStackView(views: [browserTitle, toolbar, listScroll])
@@ -940,8 +994,8 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     detail.alignment = .width
     librarySplitView.addArrangedSubview(browser)
     librarySplitView.addArrangedSubview(detail)
-    librarySplitView.setHoldingPriority(.defaultHigh, forSubviewAt: 0)
-    librarySplitView.setHoldingPriority(.defaultLow, forSubviewAt: 1)
+    librarySplitView.setHoldingPriority(NSLayoutConstraint.Priority(251), forSubviewAt: 0)
+    librarySplitView.setHoldingPriority(NSLayoutConstraint.Priority(250), forSubviewAt: 1)
     librarySplitView.delegate = self
     railView.translatesAutoresizingMaskIntoConstraints = false
     content.addSubview(railView)
@@ -982,16 +1036,38 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     refreshButton.nextKeyView = modeControl
     window.initialFirstResponder = searchField
     updateModeVisibility()
+    updateLayerColors()
   }
 
   func splitView(_ splitView: NSSplitView, canCollapseSubview subview: NSView) -> Bool { false }
   func splitView(_ splitView: NSSplitView, constrainSplitPosition proposedPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
     let browser: CGFloat = 360
-    let detail: CGFloat = 520
+    let detail: CGFloat = 420
     let divider = splitView.dividerThickness
     let lower = browser
     let upper = splitView.bounds.width - divider - detail
     return min(max(proposedPosition, lower), max(lower, upper))
+  }
+
+  private func updateLayerColors() {
+    railView.effectiveAppearance.performAsCurrentDrawingAppearance {
+      railView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+    }
+    editorContainer.effectiveAppearance.performAsCurrentDrawingAppearance {
+      editorContainer.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+    }
+    readMetadataContainer.effectiveAppearance.performAsCurrentDrawingAppearance {
+      readMetadataContainer.layer?.backgroundColor = NSColor.textBackgroundColor.cgColor
+    }
+    if let grid = editMetadataGrid {
+      grid.effectiveAppearance.performAsCurrentDrawingAppearance {
+        grid.layer?.backgroundColor = NSColor.textBackgroundColor.cgColor
+        grid.layer?.borderColor = NSColor.separatorColor.cgColor
+      }
+    }
+    entryContextScroll.effectiveAppearance.performAsCurrentDrawingAppearance {
+      entryContextScroll.layer?.borderColor = NSColor.separatorColor.cgColor
+    }
   }
 
   private func configureTable(_ table: NSTableView, columns: [(String, String, CGFloat)]) {
@@ -1036,12 +1112,9 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     grid.rowSpacing = 10
     grid.columnSpacing = 14
     grid.wantsLayer = true
-    grid.layer?.backgroundColor = NSColor.textBackgroundColor.cgColor
     grid.layer?.cornerRadius = 10
     grid.layer?.borderWidth = 1
-    grid.layer?.borderColor = NSColor.separatorColor.cgColor
     editorContainer.wantsLayer = true
-    editorContainer.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
     editorContainer.layer?.cornerRadius = 12
     grid.column(at: 0).xPlacement = .trailing
     editorContainer.addSubview(grid)
@@ -1049,7 +1122,6 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     readMetadataContainer.alignment = .leading
     readMetadataContainer.edgeInsets = NSEdgeInsets(top: 14, left: 16, bottom: 14, right: 16)
     readMetadataContainer.wantsLayer = true
-    readMetadataContainer.layer?.backgroundColor = NSColor.textBackgroundColor.cgColor
     readMetadataContainer.layer?.cornerRadius = 10
     readMetadataField.font = .systemFont(ofSize: 18, weight: .medium)
     readMetadataField.setAccessibilityLabel("Entry metadata")
@@ -1112,7 +1184,6 @@ internal final class LibraryController: NSObject, NSTableViewDataSource, NSTable
     entryContextScroll.wantsLayer = true
     entryContextScroll.layer?.cornerRadius = 12
     entryContextScroll.layer?.borderWidth = 1
-    entryContextScroll.layer?.borderColor = NSColor.separatorColor.cgColor
   }
 
   private func scrollView(for table: NSTableView) -> NSScrollView {

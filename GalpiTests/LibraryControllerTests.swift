@@ -219,6 +219,66 @@ final class LibraryControllerTests: XCTestCase {
     XCTAssertEqual(
       controller.constrainedDividerPosition(.greatestFiniteMagnitude, dividerIndex: 0),
       max(browserMinimum, controller.secondDividerUpperBound))
+    let initial = controller.libraryPaneWidths
+    let target = min(controller.secondDividerUpperBound, browserMinimum + 80)
+    controller.setDividerPositionForTesting(target)
+    let adjusted = controller.libraryPaneWidths
+    XCTAssertEqual(adjusted.browser, target, accuracy: 1)
+    XCTAssertGreaterThan(adjusted.browser, initial.browser)
+    XCTAssertLessThan(adjusted.detail, initial.detail)
+    controller.show()
+    spin(milliseconds: 50)
+    XCTAssertEqual(controller.libraryPaneWidths.browser, adjusted.browser, accuracy: 1)
+    controller.close()
+  }
+
+  func testWindowKeepsItsFrameWhenResizedHorizontally() throws {
+    let controller = LibraryController(database: try AppDatabase.inMemory())
+    controller.show()
+    spin(milliseconds: 50)
+
+    // The window must own its height: a taller frame has to stick, and the rail buttons
+    // must still sit at the top of the rail.
+    let start = controller.libraryWindowFrame
+    let taller = NSRect(
+      x: start.minX, y: start.minY - 150, width: start.width, height: start.height + 150)
+    controller.setWindowFrameForTesting(taller)
+    spin(milliseconds: 100)
+    let grown = controller.libraryWindowFrame
+    XCTAssertEqual(grown.height, taller.height, accuracy: 1)
+    XCTAssertEqual(grown.minY, taller.minY, accuracy: 1)
+    XCTAssertLessThanOrEqual(controller.railButtonTopInset, 32)
+
+    // Dragging a side edge must not move the window vertically.
+    for width in [grown.width - 100, grown.width - 200] {
+      let dragged = NSRect(
+        x: grown.maxX - width, y: grown.minY, width: width, height: grown.height)
+      controller.setWindowFrameForTesting(dragged)
+      spin(milliseconds: 100)
+      let result = controller.libraryWindowFrame
+      XCTAssertEqual(result.minY, grown.minY, accuracy: 1)
+      XCTAssertEqual(result.height, grown.height, accuracy: 1)
+      XCTAssertEqual(result.maxY, grown.maxY, accuracy: 1)
+    }
+    controller.close()
+  }
+
+  func testLayerBackedRegionsFollowEffectiveAppearance() throws {
+    let controller = LibraryController(database: try AppDatabase.inMemory())
+    let aqua = try XCTUnwrap(NSAppearance(named: .aqua))
+    let darkAqua = try XCTUnwrap(NSAppearance(named: .darkAqua))
+
+    controller.setAppearanceForTesting(aqua)
+    let lightColors = controller.styledLayerColors
+    controller.setAppearanceForTesting(darkAqua)
+    let darkColors = controller.styledLayerColors
+
+    XCTAssertEqual(lightColors.count, darkColors.count)
+    for (light, dark) in zip(lightColors, darkColors) {
+      let light = try XCTUnwrap(light)
+      let dark = try XCTUnwrap(dark)
+      XCTAssertNotEqual(light, dark)
+    }
     controller.close()
   }
 
