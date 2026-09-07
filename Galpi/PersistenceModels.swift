@@ -91,6 +91,8 @@ internal struct PendingEncounterInput: Equatable, Sendable {
   let surfaceForm: String
   let tokenStart: Int
   let tokenEnd: Int
+  let selectionUTF16Start: Int
+  let selectionUTF16End: Int
   let language: EncounterLanguage
   let capturedAtMilliseconds: Int64
   let nextRetryAtMilliseconds: Int64
@@ -102,6 +104,8 @@ internal struct PendingEncounterInput: Equatable, Sendable {
     surfaceForm: String,
     tokenStart: Int,
     tokenEnd: Int,
+    selectionUTF16Start: Int,
+    selectionUTF16End: Int,
     language: EncounterLanguage,
     capturedAtMilliseconds: Int64,
     nextRetryAtMilliseconds: Int64
@@ -112,6 +116,8 @@ internal struct PendingEncounterInput: Equatable, Sendable {
     self.surfaceForm = surfaceForm
     self.tokenStart = tokenStart
     self.tokenEnd = tokenEnd
+    self.selectionUTF16Start = selectionUTF16Start
+    self.selectionUTF16End = selectionUTF16End
     self.language = language
     self.capturedAtMilliseconds = capturedAtMilliseconds
     self.nextRetryAtMilliseconds = nextRetryAtMilliseconds
@@ -122,6 +128,8 @@ internal struct PendingEncounterInput: Equatable, Sendable {
       id: id, selectedText: capture.surfaceForm,
       normalizedText: capture.normalizedSentence, surfaceForm: capture.surfaceForm,
       tokenStart: capture.tokenStart, tokenEnd: capture.tokenEnd,
+      selectionUTF16Start: capture.selectionUTF16Start,
+      selectionUTF16End: capture.selectionUTF16End,
       language: EncounterLanguage.detect(in: capture.normalizedSentence),
       capturedAtMilliseconds: capture.capturedAtMilliseconds,
       nextRetryAtMilliseconds: capture.capturedAtMilliseconds)
@@ -136,13 +144,14 @@ internal struct EncounterRecord: Equatable, Sendable {
   let surfaceForm: String
   let tokenStart: Int
   let tokenEnd: Int
+  let selectionUTF16Start: Int?
+  let selectionUTF16End: Int?
   let language: EncounterLanguage
   let capturedAtMilliseconds: Int64
   let status: EncounterStatus
   let attemptCount: Int
   let nextRetryAtMilliseconds: Int64?
   let lastErrorKind: LookupFailureKind?
-  let lastErrorMessage: String?
   let generation: Int
   let createdAtMilliseconds: Int64
   let updatedAtMilliseconds: Int64
@@ -184,6 +193,9 @@ internal struct EntryRecord: Equatable, Sendable {
   let koreanGloss: String
   let englishDefinition: String
   let isPhrase: Bool
+  let contextSentence: String?
+  let contextStartUTF16: Int?
+  let contextEndUTF16: Int?
   let createdAtMilliseconds: Int64
   let updatedAtMilliseconds: Int64
 }

@@ -47,62 +47,44 @@ internal enum PanelPositioner {
   }
 }
 
-struct ServiceInvocation {
-  let wallTime: Date
-  let uptime: TimeInterval
-}
-
 internal struct ConfirmedCapture: Sendable {
   let normalizedSentence: String
   let surfaceForm: String
   let tokenStart: Int
   let tokenEnd: Int
+  let selectionUTF16Start: Int
+  let selectionUTF16End: Int
   let capturedAtMilliseconds: Int64
 }
 
-internal enum EvidenceResponderCategory: String, Encodable, Sendable {
-  case captureSelection
-  case actionButton
-  case other
-}
+internal enum CapturePresentationState: Equatable {
+  case selecting
+  case queued
+  case waitingForConnectivity
+  case running
+  case retryScheduled
+  case succeeded
+  case failed(settingsAvailable: Bool, retryAvailable: Bool)
+  case storageUnavailable
 
-internal struct Evidence: Encodable, Sendable {
-  let event: String
-  let wallTime: Date
-  let uptime: TimeInterval
-  let callbackWallTime: Date?
-  let callbackUptime: TimeInterval?
-  let panelIsKeyWindow: Bool
-  let panelIsMainWindow: Bool
-  let firstResponderCategory: EvidenceResponderCategory?
-  let screenFrame: CGRect?
-  let pointerLocation: CGPoint
-  let panelFrame: CGRect?
-  let normalizedScalarCount: Int?
-  let tokenCount: Int?
-  let selectedTokenCount: Int?
-  let selectedSurfaceScalarCount: Int?
-  let confirmationEligible: Bool?
-  let detail: String?
+  var accessibilityValue: String {
+    switch self {
+    case .selecting: return "Selection state"
+    case .queued: return "Lookup queued"
+    case .waitingForConnectivity: return "Lookup waiting for connection"
+    case .running: return "Lookup in progress"
+    case .retryScheduled: return "Lookup retry scheduled"
+    case .succeeded: return "Lookup complete"
+    case .failed: return "Lookup failed"
+    case .storageUnavailable: return "Lookup storage unavailable"
+    }
+  }
 
-  enum CodingKeys: String, CodingKey, CaseIterable {
-    case event
-    case wallTime
-    case uptime
-    case callbackWallTime
-    case callbackUptime
-    case panelIsKeyWindow
-    case panelIsMainWindow
-    case firstResponderCategory
-    case screenFrame
-    case pointerLocation
-    case panelFrame
-    case normalizedScalarCount
-    case tokenCount
-    case selectedTokenCount
-    case selectedSurfaceScalarCount
-    case confirmationEligible
-    case detail
+  var showsProgress: Bool {
+    switch self {
+    case .queued, .waitingForConnectivity, .running, .retryScheduled: return true
+    default: return false
+    }
   }
 }
 
@@ -118,93 +100,80 @@ internal enum ReleaseGuidance {
     """
 }
 
-final class EvidenceLog: @unchecked Sendable {
-  static let shared = EvidenceLog()
+internal struct TokenLayoutFragment: Equatable {
+  let tokenIndex: Int
+  let utf16Range: NSRange
+  let sourceGlyphRange: NSRange
+  let sourceGlyphRect: CGRect
+  let lineID: Int
+  let glyphRect: CGRect
+  let drawRect: CGRect
+  let hitRect: CGRect
 
-  private let queue = DispatchQueue(label: "com.galpi.evidence")
-  private let evidenceURL: URL
-
-  private init() {
-    let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-      .first!
-    evidenceURL = support.appendingPathComponent("Galpi", isDirectory: true).appendingPathComponent(
-      "evidence.jsonl")
-  }
-
-  var directoryURL: URL { evidenceURL.deletingLastPathComponent() }
-
-  @MainActor
-  func append(
-    event: String,
-    invocation: ServiceInvocation? = nil,
-    panel: NSPanel? = nil,
-    screenFrame: CGRect? = nil,
-    state: CaptureSelectionState? = nil,
-    detail: String? = nil
+  init(
+    tokenIndex: Int,
+    utf16Range: NSRange,
+    sourceGlyphRange: NSRange = NSRange(location: NSNotFound, length: 0),
+    sourceGlyphRect: CGRect = .zero,
+    lineID: Int,
+    glyphRect: CGRect,
+    drawRect: CGRect,
+    hitRect: CGRect
   ) {
-    let evidence = Evidence(
-      event: event,
-      wallTime: Date(),
-      uptime: ProcessInfo.processInfo.systemUptime,
-      callbackWallTime: invocation?.wallTime,
-      callbackUptime: invocation?.uptime,
-      panelIsKeyWindow: panel?.isKeyWindow ?? false,
-      panelIsMainWindow: panel?.isMainWindow ?? false,
-      firstResponderCategory: Self.responderCategory(panel?.firstResponder),
-      screenFrame: screenFrame,
-      pointerLocation: NSEvent.mouseLocation,
-      panelFrame: panel?.frame,
-      normalizedScalarCount: state?.document.scalarCount,
-      tokenCount: state?.document.tokenCount,
-      selectedTokenCount: state?.selection.selectedTokenCount,
-      selectedSurfaceScalarCount: state?.selectedSurfaceScalarCount,
-      confirmationEligible: state?.canConfirm,
-      detail: detail
-    )
-    queue.async { [evidenceURL] in
-      do {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        try FileManager.default.createDirectory(
-          at: evidenceURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        var line = try encoder.encode(evidence)
-        line.append(0x0A)
-        if FileManager.default.fileExists(atPath: evidenceURL.path) {
-          let handle = try FileHandle(forWritingTo: evidenceURL)
-          defer { try? handle.close() }
-          try handle.seekToEnd()
-          try handle.write(contentsOf: line)
-        } else {
-          try line.write(to: evidenceURL, options: .atomic)
-        }
-      } catch {
-        // Evidence failures intentionally remain content-free and do not affect the host app.
-      }
+    self.tokenIndex = tokenIndex
+    self.utf16Range = utf16Range
+    self.sourceGlyphRange = sourceGlyphRange
+    self.sourceGlyphRect = sourceGlyphRect
+    self.lineID = lineID
+    self.glyphRect = glyphRect
+    self.drawRect = drawRect
+    self.hitRect = hitRect
+  }
+}
+
+internal struct TokenLayoutLine: Equatable {
+  let lineID: Int
+  let yRange: ClosedRange<CGFloat>
+}
+
+internal enum TokenVisualState: Equatable {
+  case unselected, hovered, selected, disabled
+}
+
+internal struct TokenLayoutSnapshot {
+  static let horizontalPadding: CGFloat = 4
+  static let verticalPadding: CGFloat = 2
+  static let interBlockGap: CGFloat = 4
+  static let nearestRadius: CGFloat = 12
+
+  let fragments: [TokenLayoutFragment]
+  let lines: [TokenLayoutLine]
+  let contentHeight: CGFloat
+
+  func token(at point: CGPoint) -> Int? {
+    if let fragment = fragments.first(where: { $0.tokenIndex >= 0 && $0.hitRect.contains(point) }) {
+      return fragment.tokenIndex
     }
+    guard let line = lines.first(where: { $0.yRange.contains(point.y) }) else { return nil }
+    let candidates = fragments.enumerated().filter {
+      $0.element.tokenIndex >= 0 && $0.element.lineID == line.lineID
+    }.map {
+      (index: $0.offset, fragment: $0.element, distance: squaredDistance(point, $0.element.hitRect))
+    }.filter { $0.distance <= Self.nearestRadius * Self.nearestRadius }
+    return candidates.min {
+      $0.distance == $1.distance
+        ? ($0.fragment.tokenIndex == $1.fragment.tokenIndex
+          ? $0.index < $1.index : $0.fragment.tokenIndex < $1.fragment.tokenIndex)
+        : $0.distance < $1.distance
+    }?.fragment.tokenIndex
   }
 
-  private static func responderCategory(_ responder: NSResponder?) -> EvidenceResponderCategory? {
-    guard let responder else { return nil }
-    if responder is CaptureInputView { return .captureSelection }
-    if responder is NSButton { return .actionButton }
-    return .other
-  }
-
-  func clear(completion: @escaping @Sendable (Bool) -> Void) {
-    queue.async { [evidenceURL] in
-      do {
-        if FileManager.default.fileExists(atPath: evidenceURL.path) {
-          try FileManager.default.removeItem(at: evidenceURL)
-        }
-        completion(true)
-      } catch {
-        completion(false)
-      }
-    }
-  }
-
-  func flush() {
-    queue.sync {}
+  private func squaredDistance(_ point: CGPoint, _ rect: CGRect) -> CGFloat {
+    let x = min(max(point.x, rect.minX), rect.maxX)
+    let y = min(max(point.y, rect.minY), rect.maxY)
+    let dx = point.x - x
+    let dy = point.y - y
+    return dx * dx + dy * dy
   }
 }
 
@@ -224,10 +193,18 @@ final class CaptureInputView: NSView {
   private var isDraggingSelection = false
   private var lastDragToken: Int?
   private var textScrollOffset: CGFloat = 0
+  private var layoutSnapshot: TokenLayoutSnapshot?
+  private var snapshotIdentity: SnapshotIdentity?
+  private var hoveredToken: Int?
+  private var trackingArea: NSTrackingArea?
+  private let progressIndicator = NSProgressIndicator()
   private let settingsButton = NSButton(title: "Open Settings", target: nil, action: nil)
   private let retryButton = NSButton(title: "Retry", target: nil, action: nil)
   private(set) var confirmedEncounterID: String?
   private var resultText: String?
+  private(set) var presentationState: CapturePresentationState = .selecting
+  var isProgressIndicatorVisible: Bool { !progressIndicator.isHidden }
+  var isProgressIndicatorAnimating: Bool { !progressIndicator.isHidden }
   var isSettingsActionVisible: Bool { !settingsButton.isHidden }
   var isRetryActionVisible: Bool { !retryButton.isHidden }
   var displayedResult: String? { resultText }
@@ -252,6 +229,21 @@ final class CaptureInputView: NSView {
   var visibleActionFrames: [CGRect] {
     [settingsButton, retryButton].filter { !$0.isHidden }.map(\.frame)
   }
+  var tokenLayoutSnapshot: TokenLayoutSnapshot {
+    rebuildSnapshotIfNeeded()
+    return layoutSnapshot!
+  }
+  var currentTextScrollOffset: CGFloat { textScrollOffset }
+  func visualState(for tokenIndex: Int) -> TokenVisualState {
+    if confirmedEncounterID != nil { return .disabled }
+    if state.selection.range?.contains(tokenIndex) == true { return .selected }
+    return hoveredToken == tokenIndex ? .hovered : .unselected
+  }
+  func updateHover(at contentPoint: CGPoint?) {
+    rebuildSnapshotIfNeeded()
+    hoveredToken = contentPoint.flatMap { layoutSnapshot?.token(at: $0) }
+    needsDisplay = true
+  }
 
   private var textOrigin: CGPoint { CGPoint(x: 18, y: 44 - textScrollOffset) }
   private var textViewport: CGRect {
@@ -261,6 +253,15 @@ final class CaptureInputView: NSView {
     CGSize(width: max(1, bounds.width - 36), height: max(1, bounds.height - 154))
   }
 
+  private struct SnapshotIdentity: Equatable {
+    let text: String
+    let width: CGFloat
+    let fontName: String
+    let fontSize: CGFloat
+    let backingScale: CGFloat
+    let lineBreakMode: UInt
+  }
+
   init(frame frameRect: NSRect, document: CaptureDocument) {
     state = CaptureSelectionState(document: document)
     super.init(frame: frameRect)
@@ -268,6 +269,12 @@ final class CaptureInputView: NSView {
     textStorage.addLayoutManager(layoutManager)
     textContainer.lineFragmentPadding = 0
     textContainer.lineBreakMode = .byWordWrapping
+    progressIndicator.style = .spinning
+    progressIndicator.controlSize = .small
+    progressIndicator.isDisplayedWhenStopped = false
+    progressIndicator.isHidden = true
+    progressIndicator.stopAnimation(nil)
+    addSubview(progressIndicator)
     configureActionButton(settingsButton, action: #selector(openSettings))
     configureActionButton(retryButton, action: #selector(retryLookup))
     settingsButton.setAccessibilityLabel("Open API key settings")
@@ -291,6 +298,29 @@ final class CaptureInputView: NSView {
   override var acceptsFirstResponder: Bool { true }
   override var isFlipped: Bool { true }
 
+  override func updateTrackingAreas() {
+    super.updateTrackingAreas()
+    if let trackingArea { removeTrackingArea(trackingArea) }
+    let area = NSTrackingArea(
+      rect: textViewport, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow],
+      owner: self, userInfo: nil)
+    addTrackingArea(area)
+    trackingArea = area
+  }
+
+  override func mouseMoved(with event: NSEvent) {
+    guard confirmedEncounterID == nil else { return }
+    let point = convert(event.locationInWindow, from: nil)
+    updateHover(at: textViewport.contains(point)
+      ? CGPoint(x: point.x - textViewport.minX, y: point.y - textViewport.minY + textScrollOffset)
+      : nil)
+  }
+
+  override func mouseExited(with event: NSEvent) {
+    hoveredToken = nil
+    needsDisplay = true
+  }
+
   func markKeyWindowReady() {
     statusDescription = "\(selectionStatus) • key window"
     needsDisplay = true
@@ -298,34 +328,41 @@ final class CaptureInputView: NSView {
 
   func attachEncounter(_ id: String) {
     confirmedEncounterID = id
-    statusDescription = "Saved locally • lookup queued"
-    settingsButton.isHidden = true
-    retryButton.isHidden = true
-    updateActionKeyLoop()
-    refreshAccessibilityState()
-    needsLayout = true
-    needsDisplay = true
+    updateLookup(message: "Saved locally • lookup queued", presentation: .queued)
   }
 
   func showSaveFailure() {
-    statusDescription = "Unable to save lookup"
-    retryButton.isHidden = true
-    settingsButton.isHidden = true
-    updateActionKeyLoop()
-    needsLayout = true
-    needsDisplay = true
+    updateLookup(message: "Unable to save lookup", presentation: .storageUnavailable)
   }
 
   func updateLookup(
     message: String,
+    presentation: CapturePresentationState,
     showSettings: Bool = false,
     showRetry: Bool = false,
     koreanGloss: String? = nil,
     englishDefinition: String? = nil
   ) {
     statusDescription = message
-    settingsButton.isHidden = !showSettings
-    retryButton.isHidden = !showRetry
+    presentationState = presentation
+    let settingsAvailable: Bool
+    let retryAvailable: Bool
+    if case let .failed(settings, retry) = presentation {
+      settingsAvailable = settings
+      retryAvailable = retry
+    } else {
+      settingsAvailable = showSettings
+      retryAvailable = showRetry
+    }
+    settingsButton.isHidden = !settingsAvailable
+    retryButton.isHidden = !retryAvailable
+    if presentation.showsProgress {
+      progressIndicator.isHidden = false
+      progressIndicator.startAnimation(nil)
+    } else {
+      progressIndicator.stopAnimation(nil)
+      progressIndicator.isHidden = true
+    }
     if let koreanGloss, let englishDefinition {
       resultText = "\(koreanGloss)\n\(englishDefinition)"
     } else {
@@ -430,6 +467,18 @@ final class CaptureInputView: NSView {
     lastDragToken = nil
   }
 
+  override func scrollWheel(with event: NSEvent) {
+    scrollContent(by: event.scrollingDeltaY)
+  }
+
+  func scrollContent(by deltaY: CGFloat) {
+    rebuildSnapshotIfNeeded()
+    let maximumOffset = max(0, tokenLayoutSnapshot.contentHeight - textSize.height)
+    textScrollOffset = min(
+      maximumOffset, max(0, textScrollOffset - deltaY))
+    needsDisplay = true
+  }
+
   override func draw(_ dirtyRect: NSRect) {
     NSColor.windowBackgroundColor.setFill()
     dirtyRect.fill()
@@ -440,22 +489,16 @@ final class CaptureInputView: NSView {
     ]
     "Choose a word or phrase".draw(at: CGPoint(x: 18, y: 16), withAttributes: headingAttributes)
 
-    updateTextStorage()
-    let glyphRange = layoutManager.glyphRange(for: textContainer)
+    rebuildSnapshotIfNeeded()
     NSGraphicsContext.saveGraphicsState()
     NSBezierPath(rect: textViewport).addClip()
-    layoutManager.drawBackground(forGlyphRange: glyphRange, at: textOrigin)
-    layoutManager.drawGlyphs(forGlyphRange: glyphRange, at: textOrigin)
+    drawSnapshot()
     NSGraphicsContext.restoreGraphicsState()
 
     let footerAttributes: [NSAttributedString.Key: Any] = [
       .font: NSFont.systemFont(ofSize: 11),
       .foregroundColor: NSColor.secondaryLabelColor,
     ]
-    let privacyLine =
-      confirmedEncounterID == nil
-      ? Self.preConfirmationDisclosure
-      : "Stored locally • OpenAI store:false • Esc closes while durable work continues"
     let result = resultText.map { "\n\($0)" } ?? ""
     let returnHint =
       if confirmedEncounterID == nil {
@@ -470,7 +513,7 @@ final class CaptureInputView: NSView {
         "Return waits"
       }
     let footer =
-      "\(statusDescription)\(result)\n←/→ move • Shift extends • \(returnHint) • Tab moves actions • Esc closes\n\(privacyLine)"
+      "\(statusDescription)\(result)\n←/→ move • Shift extends • \(returnHint) • Tab moves actions • Esc closes"
     footer.draw(
       in: CGRect(x: 18, y: bounds.height - 104, width: bounds.width - 36, height: 94),
       withAttributes: footerAttributes
@@ -479,6 +522,8 @@ final class CaptureInputView: NSView {
 
   override func layout() {
     super.layout()
+    layoutSnapshot = nil
+    progressIndicator.frame = CGRect(x: 18, y: bounds.height - 33, width: 16, height: 16)
     let availableWidth = max(0, bounds.width - 36)
     let desiredSettingsWidth: CGFloat = 114
     let desiredRetryWidth: CGFloat = 74
@@ -542,35 +587,189 @@ final class CaptureInputView: NSView {
     layoutManager.ensureLayout(for: textContainer)
   }
 
-  private func tokenIndex(at event: NSEvent) -> Int? {
+  private func rebuildSnapshotIfNeeded() {
+    let font = NSFont.systemFont(ofSize: 16)
+    let identity = SnapshotIdentity(
+      text: state.document.normalizedText, width: textSize.width, fontName: font.fontName,
+      fontSize: font.pointSize, backingScale: window?.backingScaleFactor ?? 1,
+      lineBreakMode: textContainer.lineBreakMode.rawValue)
+    guard layoutSnapshot == nil || snapshotIdentity != identity else { return }
+    snapshotIdentity = identity
     updateTextStorage()
+    // TextKit is the shaping authority; its original line placement is deliberately discarded.
+    textContainer.size = CGSize(width: 100_000, height: 100_000)
+    layoutManager.ensureLayout(for: textContainer)
+    let lineHeight = ceil(font.ascender - font.descender + font.leading)
+    var fragments: [TokenLayoutFragment] = []
+    var lines: [TokenLayoutLine] = []
+    var x: CGFloat = 0
+    var y: CGFloat = 0
+    var lineID = 0
+    var priorSelectable = false
+
+    func newLine() {
+      lines.append(TokenLayoutLine(lineID: lineID, yRange: y...(y + lineHeight)))
+      lineID += 1
+      y += lineHeight
+      x = 0
+      priorSelectable = false
+    }
+
+    func glyphCluster(containing glyphIndex: Int) -> NSRange {
+      var actualGlyphRange = NSRange(location: NSNotFound, length: 0)
+      _ = layoutManager.characterRange(
+        forGlyphRange: NSRange(location: glyphIndex, length: 1),
+        actualGlyphRange: &actualGlyphRange)
+      return actualGlyphRange.location == NSNotFound
+        ? NSRange(location: glyphIndex, length: 1)
+        : actualGlyphRange
+    }
+
+    for segment in state.document.segments {
+      let segmentRange = NSRange(segment.range, in: state.document.normalizedText)
+      guard segment.isSelectable, let tokenIndex = segment.tokenIndex else {
+        let glyphRange = layoutManager.glyphRange(forCharacterRange: segmentRange, actualCharacterRange: nil)
+        let sourceGlyphRect = layoutManager.boundingRect(
+          forGlyphRange: glyphRange, in: textContainer)
+        let width = ceil(sourceGlyphRect.width)
+        if x > 0, x + width > textSize.width { newLine() }
+        let glyphRect = CGRect(x: x, y: y, width: width, height: lineHeight)
+        fragments.append(TokenLayoutFragment(
+          tokenIndex: -1, utf16Range: segmentRange, sourceGlyphRange: glyphRange,
+          sourceGlyphRect: sourceGlyphRect, lineID: lineID, glyphRect: glyphRect,
+          drawRect: glyphRect, hitRect: .null))
+        x += width
+        priorSelectable = false
+        continue
+      }
+      let tokenGlyphRange = layoutManager.glyphRange(forCharacterRange: segmentRange, actualCharacterRange: nil)
+      var glyphLocation = tokenGlyphRange.location
+      while glyphLocation < NSMaxRange(tokenGlyphRange) {
+        let gap = priorSelectable ? TokenLayoutSnapshot.interBlockGap : 0
+        let available = max(1, textSize.width - x - gap - 2 * TokenLayoutSnapshot.horizontalPadding)
+        var endGlyph = glyphLocation
+        var measured: CGFloat = 0
+        while endGlyph < NSMaxRange(tokenGlyphRange) {
+          let cluster = glyphCluster(containing: endGlyph)
+          let candidateEnd = min(NSMaxRange(cluster), NSMaxRange(tokenGlyphRange))
+          let candidate = NSRange(location: glyphLocation, length: candidateEnd - glyphLocation)
+          let candidateWidth = ceil(layoutManager.boundingRect(forGlyphRange: candidate, in: textContainer).width)
+          if endGlyph > glyphLocation, candidateWidth > available { break }
+          endGlyph = candidateEnd
+          measured = candidateWidth
+          if candidateWidth >= available { break }
+        }
+        if endGlyph == glyphLocation {
+          if x > 0 { newLine(); continue }
+          let cluster = glyphCluster(containing: glyphLocation)
+          endGlyph = min(NSMaxRange(cluster), NSMaxRange(tokenGlyphRange))
+          measured = ceil(layoutManager.boundingRect(
+            forGlyphRange: NSRange(location: glyphLocation, length: endGlyph - glyphLocation),
+            in: textContainer).width)
+        }
+        let glyphWidth = measured
+        let reserved = gap + glyphWidth + 2 * TokenLayoutSnapshot.horizontalPadding
+        if x > 0, x + reserved > textSize.width { newLine(); continue }
+        x += gap
+        let glyphRect = CGRect(x: x + TokenLayoutSnapshot.horizontalPadding, y: y, width: glyphWidth, height: lineHeight)
+        let drawRect = glyphRect.insetBy(dx: -TokenLayoutSnapshot.horizontalPadding, dy: -TokenLayoutSnapshot.verticalPadding)
+        let characterRange = layoutManager.characterRange(
+          forGlyphRange: NSRange(location: glyphLocation, length: endGlyph - glyphLocation),
+          actualGlyphRange: nil)
+        let sourceGlyphRange = NSRange(
+          location: glyphLocation, length: endGlyph - glyphLocation)
+        let sourceGlyphRect = layoutManager.boundingRect(
+          forGlyphRange: sourceGlyphRange, in: textContainer)
+        fragments.append(TokenLayoutFragment(
+          tokenIndex: tokenIndex, utf16Range: characterRange,
+          sourceGlyphRange: sourceGlyphRange, sourceGlyphRect: sourceGlyphRect,
+          lineID: lineID, glyphRect: glyphRect, drawRect: drawRect, hitRect: drawRect))
+        x += glyphWidth + 2 * TokenLayoutSnapshot.horizontalPadding
+        glyphLocation = endGlyph
+        priorSelectable = true
+      }
+    }
+    lines.append(TokenLayoutLine(lineID: lineID, yRange: y...(y + lineHeight)))
+    layoutSnapshot = TokenLayoutSnapshot(fragments: fragments, lines: lines, contentHeight: y + lineHeight)
+    textScrollOffset = min(max(0, textScrollOffset), max(0, y + lineHeight - textSize.height))
+  }
+
+  private func drawSnapshot() {
+    let snapshot = tokenLayoutSnapshot
+    for fragment in snapshot.fragments {
+      let visualState: TokenVisualState
+      if confirmedEncounterID != nil {
+        visualState = .disabled
+      } else if state.selection.range?.contains(fragment.tokenIndex) == true {
+        visualState = .selected
+      } else if hoveredToken == fragment.tokenIndex {
+        visualState = .hovered
+      } else {
+        visualState = .unselected
+      }
+      let rect = fragment.drawRect.offsetBy(dx: textViewport.minX, dy: textViewport.minY - textScrollOffset)
+      if fragment.tokenIndex >= 0 {
+        switch visualState {
+        case .selected:
+          NSColor.selectedTextBackgroundColor.setFill()
+          NSBezierPath(roundedRect: rect, xRadius: 2, yRadius: 2).fill()
+          NSColor.keyboardFocusIndicatorColor.setStroke()
+          NSBezierPath(roundedRect: rect, xRadius: 2, yRadius: 2).stroke()
+        case .hovered:
+          let path = NSBezierPath(roundedRect: rect, xRadius: 2, yRadius: 2)
+          path.setLineDash([2, 2], count: 2, phase: 0)
+          NSColor.keyboardFocusIndicatorColor.setStroke()
+          path.stroke()
+        case .disabled:
+          NSColor.disabledControlTextColor.setStroke()
+          NSBezierPath(roundedRect: rect, xRadius: 2, yRadius: 2).stroke()
+          let slash = NSBezierPath()
+          slash.move(to: CGPoint(x: rect.minX, y: rect.minY))
+          slash.line(to: CGPoint(x: rect.maxX, y: rect.maxY))
+          slash.stroke()
+        case .unselected:
+          NSColor.separatorColor.setStroke()
+          NSBezierPath(roundedRect: rect, xRadius: 2, yRadius: 2).stroke()
+        }
+      }
+      guard fragment.sourceGlyphRange.location != NSNotFound else { continue }
+      let targetOrigin = CGPoint(
+        x: fragment.glyphRect.minX + textViewport.minX,
+        y: fragment.glyphRect.minY + textViewport.minY - textScrollOffset)
+      let translation = CGPoint(
+        x: targetOrigin.x - fragment.sourceGlyphRect.minX,
+        y: targetOrigin.y - fragment.sourceGlyphRect.minY)
+      let context = NSGraphicsContext.current?.cgContext
+      context?.saveGState()
+      if visualState == .disabled { context?.setAlpha(0.5) }
+      layoutManager.drawGlyphs(forGlyphRange: fragment.sourceGlyphRange, at: translation)
+      context?.restoreGState()
+    }
+  }
+
+  private func tokenIndex(at event: NSEvent) -> Int? {
     let point = convert(event.locationInWindow, from: nil)
-    let containerPoint = CGPoint(
-      x: point.x - textViewport.minX, y: point.y - textViewport.minY + textScrollOffset)
-    guard containerPoint.x >= 0, containerPoint.y >= 0,
-      containerPoint.x <= textSize.width, point.y <= textViewport.maxY
-    else { return nil }
-    guard layoutManager.usedRect(for: textContainer).contains(containerPoint) else { return nil }
-    let glyph = layoutManager.glyphIndex(for: containerPoint, in: textContainer)
-    guard glyph < layoutManager.numberOfGlyphs else { return nil }
-    let character = layoutManager.characterIndexForGlyph(at: glyph)
-    return state.document.tokenIndex(atUTF16Offset: character)
+    guard textViewport.contains(point) else { return nil }
+    rebuildSnapshotIfNeeded()
+    return layoutSnapshot?.token(at: CGPoint(
+      x: point.x - textViewport.minX, y: point.y - textViewport.minY + textScrollOffset))
   }
 
   private func ensureSelectionVisible() {
-    updateTextStorage()
-    guard let characterRange = state.selection.range.flatMap(state.document.nsRange(for:)) else {
+    rebuildSnapshotIfNeeded()
+    guard let range = state.selection.range else {
       return
     }
-    let glyphRange = layoutManager.glyphRange(
-      forCharacterRange: characterRange, actualCharacterRange: nil)
-    let selectedRect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
+    let selected = tokenLayoutSnapshot.fragments.filter { range.contains($0.tokenIndex) }
+    guard let selectedRect = selected.map(\.drawRect).reduce(nil, { $0?.union($1) ?? $1 }) else {
+      return
+    }
     if selectedRect.minY < textScrollOffset {
       textScrollOffset = selectedRect.minY
     } else if selectedRect.maxY > textScrollOffset + textSize.height {
       textScrollOffset = selectedRect.maxY - textSize.height
     }
-    let maximumOffset = max(0, layoutManager.usedRect(for: textContainer).height - textSize.height)
+    let maximumOffset = max(0, tokenLayoutSnapshot.contentHeight - textSize.height)
     textScrollOffset = min(max(textScrollOffset, 0), maximumOffset)
   }
 
@@ -604,11 +803,11 @@ final class CaptureInputView: NSView {
 
   private func refreshAccessibilityState() {
     let result = resultText.map { " Result: \($0)" } ?? ""
-    setAccessibilityValue("\(statusDescription)\(result)")
+    setAccessibilityValue("\(presentationState.accessibilityValue)\(result)")
     let privacy =
       confirmedEncounterID == nil
-      ? Self.preConfirmationDisclosure
-      : "Stored locally. OpenAI requests use store:false. Escape closes while durable work continues."
+      ? ReleaseGuidance.capturePrivacy
+      : "The normalized sentence and exact surface were stored locally and sent using OpenAI store:false. Escape closes while durable work continues."
     let action =
       !settingsButton.isHidden
       ? " Open API key settings is available."
@@ -641,7 +840,6 @@ final class NonactivatingPanelController: NSObject, NSWindowDelegate {
   private var panel: NSPanel?
   private var globalMouseMonitor: Any?
   private var localMouseMonitor: Any?
-  private var invocation: ServiceInvocation?
   private var lifecycle = PanelLifecycleState()
 
   isolated deinit {
@@ -654,14 +852,12 @@ final class NonactivatingPanelController: NSObject, NSWindowDelegate {
   }
 
   func shutdown() {
-    dismiss(reason: "termination")
-    EvidenceLog.shared.flush()
+    dismiss()
   }
 
-  func show(document: CaptureDocument, invocation: ServiceInvocation) {
-    dismiss(reason: "replacement")
+  func show(document: CaptureDocument) {
+    dismiss()
     let generation = lifecycle.beginPanel()
-    self.invocation = invocation
     let panel = DiagnosticPanel(
       contentRect: .init(origin: .zero, size: panelSize),
       styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
@@ -681,13 +877,6 @@ final class NonactivatingPanelController: NSObject, NSWindowDelegate {
     if let frame { panel.setFrame(frame, display: true) }
     self.panel = panel
     panel.makeFirstResponder(view)
-    EvidenceLog.shared.append(
-      event: "panelCreate",
-      invocation: invocation,
-      panel: panel,
-      screenFrame: panel.screen?.visibleFrame,
-      state: view.state
-    )
     installMonitors(generation: generation)
     panel.orderFrontRegardless()
     panel.makeKey()
@@ -699,23 +888,17 @@ final class NonactivatingPanelController: NSObject, NSWindowDelegate {
     if let view = panel.contentView as? CaptureInputView {
       view.markKeyWindowReady()
     }
-    EvidenceLog.shared.append(
-      event: "panelReady",
-      invocation: invocation,
-      panel: panel,
-      screenFrame: panel.screen?.visibleFrame,
-      state: (panel.contentView as? CaptureInputView)?.state
-    )
   }
 
   func windowDidResignKey(_ notification: Notification) {
     guard let panel, let window = notification.object as? NSWindow, window === panel else { return }
-    dismiss(reason: "resignKey")
+    dismiss()
   }
 
   func updateLookup(
     encounterID: String,
     message: String,
+    presentation: CapturePresentationState,
     showSettings: Bool = false,
     showRetry: Bool = false,
     koreanGloss: String? = nil,
@@ -726,6 +909,7 @@ final class NonactivatingPanelController: NSObject, NSWindowDelegate {
     else { return }
     view.updateLookup(
       message: message,
+      presentation: presentation,
       showSettings: showSettings,
       showRetry: showRetry,
       koreanGloss: koreanGloss,
@@ -733,27 +917,19 @@ final class NonactivatingPanelController: NSObject, NSWindowDelegate {
     )
   }
 
-  func updateCurrentLookup(message: String) {
+  func updateCurrentLookup(message: String, presentation: CapturePresentationState) {
     guard let view = panel?.contentView as? CaptureInputView,
       view.confirmedEncounterID != nil
     else { return }
-    view.updateLookup(message: message)
+    view.updateLookup(message: message, presentation: presentation)
   }
 
   func handleAction(_ action: String, state: CaptureSelectionState? = nil) {
     guard let panel else { return }
-    EvidenceLog.shared.append(
-      event: "panelAction",
-      invocation: invocation,
-      panel: panel,
-      screenFrame: panel.screen?.visibleFrame,
-      state: state ?? (panel.contentView as? CaptureInputView)?.state,
-      detail: action
-    )
     if action == "escape" {
-      dismiss(reason: "escape")
+      dismiss()
     } else if action == "closeResolved" {
-      dismiss(reason: "resolved")
+      dismiss()
     } else if action == "settings" {
       openSettingsHandler?()
     } else if action == "retry",
@@ -764,13 +940,18 @@ final class NonactivatingPanelController: NSObject, NSWindowDelegate {
       let state,
       state.canConfirm,
       let range = state.selection.range,
-      let surface = state.selectedSurface
+      let surface = state.selectedSurface,
+      let contextRange = state.document.nsRange(for: range),
+      contextRange.location != NSNotFound,
+      contextRange.length > 0
     {
       let capture = ConfirmedCapture(
         normalizedSentence: state.document.normalizedText,
         surfaceForm: surface,
         tokenStart: range.lowerBound,
         tokenEnd: range.upperBound + 1,
+        selectionUTF16Start: contextRange.location,
+        selectionUTF16End: contextRange.location + contextRange.length,
         capturedAtMilliseconds: Int64(Date().timeIntervalSince1970 * 1_000)
       )
       if let id = confirmationHandler?(capture) {
@@ -794,7 +975,7 @@ final class NonactivatingPanelController: NSObject, NSWindowDelegate {
         guard let self, let panel, self.panel === panel, self.lifecycle.isCurrent(generation) else {
           return
         }
-        self.dismiss(reason: "globalMouse")
+        self.dismiss()
       }
     }
     localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] event in
@@ -802,40 +983,25 @@ final class NonactivatingPanelController: NSObject, NSWindowDelegate {
         return event
       }
       if event.window !== panel {
-        self.dismiss(reason: "localOutsideMouse")
+        self.dismiss()
       } else {
         self.handleAction("localPanelMouse")
       }
       return event
     }
-    EvidenceLog.shared.append(
-      event: "monitorCreate",
-      invocation: invocation,
-      panel: panel,
-      screenFrame: panel.screen?.visibleFrame,
-      state: (panel.contentView as? CaptureInputView)?.state
-    )
   }
 
-  private func dismiss(reason: String) {
+  private func dismiss() {
     guard let panel, let generation = lifecycle.activeGeneration else { return }
     self.panel = nil
-    EvidenceLog.shared.append(
-      event: "panelDismiss",
-      invocation: invocation,
-      panel: panel,
-      screenFrame: panel.screen?.visibleFrame,
-      state: (panel.contentView as? CaptureInputView)?.state,
-      detail: reason
-    )
-    removeMonitors(reason: reason, panel: panel)
+    (panel.contentView as? CaptureInputView)?.updateLookup(
+      message: "", presentation: .selecting)
+    removeMonitors()
     lifecycle.finishPanel(generation)
     panel.orderOut(nil)
-    invocation = nil
   }
 
-  private func removeMonitors(reason: String, panel: NSPanel? = nil) {
-    let evidencePanel = panel ?? self.panel
+  private func removeMonitors() {
     if let globalMouseMonitor {
       NSEvent.removeMonitor(globalMouseMonitor)
       self.globalMouseMonitor = nil
@@ -843,16 +1009,6 @@ final class NonactivatingPanelController: NSObject, NSWindowDelegate {
     if let localMouseMonitor {
       NSEvent.removeMonitor(localMouseMonitor)
       self.localMouseMonitor = nil
-    }
-    if let evidencePanel {
-      EvidenceLog.shared.append(
-        event: "monitorRemove",
-        invocation: invocation,
-        panel: evidencePanel,
-        screenFrame: evidencePanel.screen?.visibleFrame,
-        state: (evidencePanel.contentView as? CaptureInputView)?.state,
-        detail: reason
-      )
     }
   }
 }

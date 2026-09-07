@@ -1,0 +1,52 @@
+{
+  "candidateFailureCount" : 0,
+  "criticalWrongSenseCount" : 0,
+  "exactTypeCount" : 4,
+  "judgeFailureCount" : 0,
+  "p95CandidateLatencyMilliseconds" : 2032,
+  "passes" : true,
+  "records" : [
+    {
+      "actualType" : "word",
+      "candidateCostUSD" : 7.52e-05,
+      "candidateLatencyMilliseconds" : 1593,
+      "decision" : "completed",
+      "expectedType" : "word",
+      "id" : "m5-en-word",
+      "judgeCostUSD" : 0.00228,
+      "semanticPass" : true
+    },
+    {
+      "actualType" : "phrase",
+      "candidateCostUSD" : 7.7e-05,
+      "candidateLatencyMilliseconds" : 2032,
+      "decision" : "completed",
+      "expectedType" : "phrase",
+      "id" : "m5-en-phrase",
+      "judgeCostUSD" : 0.002252,
+      "semanticPass" : true
+    },
+    {
+      "actualType" : "word",
+      "candidateCostUSD" : 0.00011,
+      "candidateLatencyMilliseconds" : 1190,
+      "decision" : "completed",
+      "expectedType" : "word",
+      "id" : "m5-ja-word",
+      "judgeCostUSD" : 0.002228,
+      "semanticPass" : true
+    },
+    {
+      "actualType" : "phrase",
+      "candidateCostUSD" : 0.000138,
+      "candidateLatencyMilliseconds" : 1576,
+      "decision" : "completed",
+      "expectedType" : "phrase",
+      "id" : "m5-ja-phrase",
+      "judgeCostUSD" : 0.002232,
+      "semanticPass" : true
+    }
+  ],
+  "semanticPassCount" : 4,
+  "totalCostUSD" : 0.0093922
+}

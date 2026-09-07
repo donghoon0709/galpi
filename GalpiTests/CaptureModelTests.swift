@@ -117,6 +117,24 @@ final class CaptureModelTests: XCTestCase {
     XCTAssertEqual(document.tokenIndex(atUTF16Offset: swiftOffset), 1)
   }
 
+  func testSelectionRangeUsesZeroBasedEndExclusiveUTF16Offsets() throws {
+    let document = try CaptureDocument(rawText: "猫🐈 Swift")
+    let range = try XCTUnwrap(document.nsRange(for: 1...1))
+
+    XCTAssertEqual(range.location, 4)
+    XCTAssertEqual(range.length, 5)
+    XCTAssertEqual(range.location + range.length, 9)
+  }
+
+  func testRepeatedSurfaceUsesSelectedTokenRangeRatherThanTextSearch() throws {
+    let document = try CaptureDocument(rawText: "echo echo")
+    let second = try XCTUnwrap(document.nsRange(for: 1...1))
+
+    XCTAssertEqual(second.location, 5)
+    XCTAssertEqual(second.length, 4)
+    XCTAssertEqual(NSMaxRange(second), 9)
+  }
+
   func testInvalidTokenRangesDoNotProduceSurface() throws {
     let document = try CaptureDocument(rawText: "one two")
 

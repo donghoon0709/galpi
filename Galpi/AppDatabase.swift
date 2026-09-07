@@ -7,8 +7,13 @@ internal enum AppDatabaseError: Error, Equatable {
   case invalidEntryPayload
 }
 
+internal enum V2MigrationPhase {
+  case afterEntriesCopy
+}
+
 /// A synchronous database boundary intended to be owned by one actor.
 internal final class AppDatabase: @unchecked Sendable {
+  nonisolated(unsafe) static var v2MigrationFailureInjector: ((V2MigrationPhase) throws -> Void)?
   let databaseQueue: DatabaseQueue
 
   convenience init(path: URL) throws {
@@ -24,6 +29,9 @@ internal final class AppDatabase: @unchecked Sendable {
     var migrator = DatabaseMigrator()
     migrator.registerMigration("v1") { database in
       try Self.createV1Schema(in: database)
+    }
+    migrator.registerMigration("v2") { database in
+      try Self.migrateV2(in: database)
     }
     try migrator.migrate(databaseQueue)
   }
@@ -42,19 +50,24 @@ internal final class AppDatabase: @unchecked Sendable {
   func createPending(_ input: PendingEncounterInput, nowMilliseconds: Int64) throws
     -> EncounterRecord
   {
-    try databaseQueue.write { database in
+    try Self.validateSelection(
+      sentence: input.normalizedText, selectedText: input.surfaceForm,
+      start: input.selectionUTF16Start, end: input.selectionUTF16End)
+    return try databaseQueue.write { database in
       try database.execute(
         sql: """
           INSERT INTO encounters (
               id, entry_id, selected_text, normalized_text, surface_form,
-              token_start, token_end, language, captured_at_ms, status,
-              attempt_count, next_retry_at_ms, last_error_kind, last_error_message,
+              token_start, token_end, selection_utf16_start, selection_utf16_end,
+              language, captured_at_ms, status,
+              attempt_count, next_retry_at_ms, last_error_kind,
               generation, created_at_ms, updated_at_ms
-          ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?, NULL, NULL, 0, ?, ?)
+          ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?, NULL, 0, ?, ?)
           """,
         arguments: [
           input.id, input.selectedText, input.normalizedText, input.surfaceForm,
-          input.tokenStart, input.tokenEnd, input.language.rawValue,
+          input.tokenStart, input.tokenEnd, input.selectionUTF16Start, input.selectionUTF16End,
+          input.language.rawValue,
           input.capturedAtMilliseconds, input.nextRetryAtMilliseconds,
           nowMilliseconds, nowMilliseconds,
         ])
@@ -136,11 +149,11 @@ internal final class AppDatabase: @unchecked Sendable {
       try database.execute(
         sql: """
           UPDATE encounters
-          SET next_retry_at_ms = ?, last_error_kind = ?, last_error_message = ?, updated_at_ms = ?
+          SET next_retry_at_ms = ?, last_error_kind = ?, updated_at_ms = ?
           WHERE id = ? AND status = 'pending' AND generation = ? AND attempt_count BETWEEN 1 AND 4
           """,
         arguments: [
-          nextRetryAtMilliseconds, kind.rawValue, kind.sanitizedMessage, nowMilliseconds,
+          nextRetryAtMilliseconds, kind.rawValue, nowMilliseconds,
           id, expectedGeneration,
         ])
       return database.changesCount == 1
@@ -160,10 +173,10 @@ internal final class AppDatabase: @unchecked Sendable {
         sql: """
           UPDATE encounters
           SET status = 'failed', next_retry_at_ms = NULL,
-              last_error_kind = ?, last_error_message = ?, updated_at_ms = ?
+              last_error_kind = ?, updated_at_ms = ?
           WHERE id = ? AND status = 'pending' AND generation = ?
           """,
-        arguments: [kind.rawValue, kind.sanitizedMessage, nowMilliseconds, id, expectedGeneration])
+        arguments: [kind.rawValue, nowMilliseconds, id, expectedGeneration])
       return database.changesCount == 1
     }
   }
@@ -180,10 +193,10 @@ internal final class AppDatabase: @unchecked Sendable {
         sql: """
           UPDATE encounters
           SET status = 'failed', next_retry_at_ms = NULL,
-              last_error_kind = ?, last_error_message = ?, updated_at_ms = ?
+              last_error_kind = ?, updated_at_ms = ?
           WHERE id = ? AND status = 'pending' AND generation = ? AND attempt_count >= 5
           """,
-        arguments: [kind.rawValue, kind.sanitizedMessage, nowMilliseconds, id, expectedGeneration])
+        arguments: [kind.rawValue, nowMilliseconds, id, expectedGeneration])
       return database.changesCount == 1
     }
   }
@@ -195,7 +208,7 @@ internal final class AppDatabase: @unchecked Sendable {
         sql: """
           UPDATE encounters
           SET status = 'pending', entry_id = NULL, attempt_count = 0,
-              next_retry_at_ms = ?, last_error_kind = NULL, last_error_message = NULL,
+              next_retry_at_ms = ?, last_error_kind = NULL,
               generation = generation + 1, updated_at_ms = ?
           WHERE id = ? AND status IN ('pending', 'failed')
           """,
@@ -211,7 +224,7 @@ internal final class AppDatabase: @unchecked Sendable {
         sql: """
           UPDATE encounters
           SET status = 'pending', attempt_count = 0, next_retry_at_ms = ?,
-              last_error_kind = NULL, last_error_message = NULL,
+              last_error_kind = NULL,
               generation = generation + 1, updated_at_ms = ?
           WHERE id = ? AND status = 'failed'
           """,
@@ -252,6 +265,7 @@ internal final class AppDatabase: @unchecked Sendable {
         encounter.status == .pending,
         encounter.generation == expectedGeneration
       else { return nil }
+      try Self.validateStoredSelection(encounter)
 
       let resolvedEntry: EntryRecord
       if let existing = try Self.fetchExactEntry(database, payload: canonicalEntry) {
@@ -261,13 +275,16 @@ internal final class AppDatabase: @unchecked Sendable {
           sql: """
             INSERT INTO entries (
                 id, language, headword_key, surface_form, korean_gloss,
-                english_definition, is_phrase, created_at_ms, updated_at_ms
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                english_definition, is_phrase, context_sentence, context_start_utf16,
+                context_end_utf16, created_at_ms, updated_at_ms
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
           arguments: [
             canonicalEntry.id, canonicalEntry.language.rawValue, canonicalEntry.headwordKey,
             canonicalEntry.surfaceForm, canonicalEntry.koreanGloss,
             canonicalEntry.englishDefinition, canonicalEntry.isPhrase ? 1 : 0,
+            encounter.selectionUTF16Start == nil ? nil : encounter.normalizedText,
+            encounter.selectionUTF16Start, encounter.selectionUTF16End,
             nowMilliseconds, nowMilliseconds,
           ])
         resolvedEntry = try Self.fetchEntry(database, id: canonicalEntry.id)!
@@ -277,7 +294,7 @@ internal final class AppDatabase: @unchecked Sendable {
         sql: """
           UPDATE encounters
           SET entry_id = ?, status = 'complete', next_retry_at_ms = NULL,
-              last_error_kind = NULL, last_error_message = NULL, updated_at_ms = ?
+              last_error_kind = NULL, updated_at_ms = ?
           WHERE id = ? AND status = 'pending' AND generation = ?
           """,
         arguments: [resolvedEntry.id, nowMilliseconds, encounterID, expectedGeneration])
@@ -289,26 +306,52 @@ internal final class AppDatabase: @unchecked Sendable {
     try databaseQueue.read { try Self.fetchEntry($0, id: id) }
   }
 
-  func listEntries(search: String = "") throws -> [EntryRecord] {
+  func listEntries(search: String = "", modifiedWithin: ClosedRange<Int64>? = nil) throws -> [EntryRecord] {
     try databaseQueue.read { database in
       let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
       let rows: [Row]
+      let bounds = modifiedWithin.map { _ in "updated_at_ms >= ? AND updated_at_ms <= ?" }
       if query.isEmpty {
+        if let modifiedWithin {
+          rows = try Row.fetchAll(
+            database,
+            sql: "SELECT * FROM entries WHERE updated_at_ms >= ? AND updated_at_ms <= ? ORDER BY updated_at_ms DESC, created_at_ms DESC, id",
+            arguments: [modifiedWithin.lowerBound, modifiedWithin.upperBound])
+        } else {
         rows = try Row.fetchAll(
           database,
           sql: "SELECT * FROM entries ORDER BY updated_at_ms DESC, created_at_ms DESC, id")
+        }
       } else {
         let pattern = "%\(Self.escapedLikePattern(query))%"
-        rows = try Row.fetchAll(
-          database,
-          sql: """
-            SELECT * FROM entries
-            WHERE surface_form LIKE ? ESCAPE '\\' COLLATE NOCASE
-               OR korean_gloss LIKE ? ESCAPE '\\' COLLATE NOCASE
-               OR english_definition LIKE ? ESCAPE '\\' COLLATE NOCASE
-            ORDER BY updated_at_ms DESC, created_at_ms DESC, id
-            """,
-          arguments: [pattern, pattern, pattern])
+        let predicate = bounds.map { "AND \($0)" } ?? ""
+        if let modifiedWithin {
+          rows = try Row.fetchAll(
+            database,
+            sql: """
+              SELECT * FROM entries
+              WHERE (surface_form LIKE ? ESCAPE '\\' COLLATE NOCASE
+                 OR korean_gloss LIKE ? ESCAPE '\\' COLLATE NOCASE
+                 OR english_definition LIKE ? ESCAPE '\\' COLLATE NOCASE)
+              \(predicate)
+              ORDER BY updated_at_ms DESC, created_at_ms DESC, id
+              """,
+            arguments: [
+              pattern, pattern, pattern, modifiedWithin.lowerBound, modifiedWithin.upperBound,
+            ])
+        } else {
+          rows = try Row.fetchAll(
+            database,
+            sql: """
+              SELECT * FROM entries
+              WHERE (surface_form LIKE ? ESCAPE '\\' COLLATE NOCASE
+                 OR korean_gloss LIKE ? ESCAPE '\\' COLLATE NOCASE
+                 OR english_definition LIKE ? ESCAPE '\\' COLLATE NOCASE)
+              \(predicate)
+              ORDER BY updated_at_ms DESC, created_at_ms DESC, id
+              """,
+            arguments: [pattern, pattern, pattern])
+        }
       }
       return try rows.map { try Self.entry(from: $0) }
     }
@@ -432,13 +475,13 @@ internal final class AppDatabase: @unchecked Sendable {
         sql: """
           SELECT * FROM entries
           WHERE language = ? AND headword_key = ? AND surface_form = ? AND korean_gloss = ?
-              AND english_definition = ? AND is_phrase = ?
+              AND english_definition = ?
           ORDER BY created_at_ms, id
           LIMIT 1
           """,
         arguments: [
           payload.language.rawValue, payload.headwordKey, payload.surfaceForm, payload.koreanGloss,
-          payload.englishDefinition, payload.isPhrase ? 1 : 0,
+          payload.englishDefinition,
         ])
     else { return nil }
     return try entry(from: row)
@@ -465,15 +508,19 @@ internal final class AppDatabase: @unchecked Sendable {
     } else {
       errorKind = nil
     }
-    return EncounterRecord(
+    let encounter = EncounterRecord(
       id: row["id"], entryID: row["entry_id"], selectedText: row["selected_text"],
       normalizedText: row["normalized_text"], surfaceForm: row["surface_form"],
-      tokenStart: row["token_start"], tokenEnd: row["token_end"], language: language,
+      tokenStart: row["token_start"], tokenEnd: row["token_end"],
+      selectionUTF16Start: row["selection_utf16_start"],
+      selectionUTF16End: row["selection_utf16_end"], language: language,
       capturedAtMilliseconds: row["captured_at_ms"], status: status,
       attemptCount: row["attempt_count"], nextRetryAtMilliseconds: row["next_retry_at_ms"],
-      lastErrorKind: errorKind, lastErrorMessage: row["last_error_message"],
+      lastErrorKind: errorKind,
       generation: row["generation"], createdAtMilliseconds: row["created_at_ms"],
       updatedAtMilliseconds: row["updated_at_ms"])
+    try validateStoredSelection(encounter)
+    return encounter
   }
 
   private static func entry(from row: Row) throws -> EntryRecord {
@@ -482,11 +529,139 @@ internal final class AppDatabase: @unchecked Sendable {
     }
     let isPhrase: Int = row["is_phrase"]
     guard isPhrase == 0 || isPhrase == 1 else { throw AppDatabaseError.invalidStoredValue }
-    return EntryRecord(
+    let entry = EntryRecord(
       id: row["id"], language: language, headwordKey: row["headword_key"],
       surfaceForm: row["surface_form"], koreanGloss: row["korean_gloss"],
       englishDefinition: row["english_definition"], isPhrase: isPhrase == 1,
+      contextSentence: row["context_sentence"], contextStartUTF16: row["context_start_utf16"],
+      contextEndUTF16: row["context_end_utf16"],
       createdAtMilliseconds: row["created_at_ms"], updatedAtMilliseconds: row["updated_at_ms"])
+    try validateEntryContext(entry)
+    return entry
+  }
+
+  private static func validateSelection(
+    sentence: String, selectedText: String, start: Int, end: Int
+  ) throws {
+    let range = NSRange(location: start, length: end - start)
+    guard start >= 0, end > start, end <= (sentence as NSString).length,
+      let swiftRange = Range(range, in: sentence), String(sentence[swiftRange]) == selectedText
+    else { throw AppDatabaseError.invalidStoredValue }
+  }
+
+  private static func validateStoredSelection(_ encounter: EncounterRecord) throws {
+    switch (encounter.selectionUTF16Start, encounter.selectionUTF16End) {
+    case (nil, nil): return
+    case let (start?, end?):
+      try validateSelection(
+        sentence: encounter.normalizedText, selectedText: encounter.surfaceForm,
+        start: start, end: end)
+    default: throw AppDatabaseError.invalidStoredValue
+    }
+  }
+
+  private static func validateEntryContext(_ entry: EntryRecord) throws {
+    switch (entry.contextSentence, entry.contextStartUTF16, entry.contextEndUTF16) {
+    case (nil, nil, nil): return
+    case let (sentence?, start?, end?):
+      let range = NSRange(location: start, length: end - start)
+      guard start >= 0, end > start, end <= (sentence as NSString).length,
+        Range(range, in: sentence) != nil
+      else { throw AppDatabaseError.invalidStoredValue }
+    default: throw AppDatabaseError.invalidStoredValue
+    }
+  }
+
+  private static func migrateV2(in database: Database) throws {
+    try database.execute(sql: """
+      CREATE TABLE entries_v2 (
+        id TEXT PRIMARY KEY NOT NULL CHECK(length(id) > 0),
+        language TEXT NOT NULL CHECK(language IN ('english', 'japanese', 'mixed', 'und')),
+        headword_key TEXT NOT NULL CHECK(length(headword_key) > 0),
+        surface_form TEXT NOT NULL CHECK(length(surface_form) > 0),
+        korean_gloss TEXT NOT NULL CHECK(length(korean_gloss) > 0),
+        english_definition TEXT NOT NULL CHECK(length(english_definition) > 0),
+        is_phrase INTEGER NOT NULL CHECK(is_phrase IN (0, 1)),
+        created_at_ms INTEGER NOT NULL CHECK(created_at_ms >= 0),
+        updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms >= 0),
+        context_sentence TEXT,
+        context_start_utf16 INTEGER,
+        context_end_utf16 INTEGER,
+        CHECK((context_sentence IS NULL) = (context_start_utf16 IS NULL)),
+        CHECK((context_sentence IS NULL) = (context_end_utf16 IS NULL)),
+        CHECK(context_start_utf16 IS NULL OR (context_start_utf16 >= 0 AND context_end_utf16 > context_start_utf16))
+      )
+      """)
+    try database.execute(sql: "ALTER TABLE encounters RENAME TO encounters_v1")
+    try database.execute(sql: "ALTER TABLE entries RENAME TO entries_v1")
+    try database.execute(sql: "DROP INDEX entries_canonical")
+    try database.execute(sql: "DROP INDEX encounters_status_due")
+    try database.execute(sql: "DROP INDEX encounters_entry_id")
+    try database.execute(sql: "DROP INDEX encounters_captured_at")
+    try database.execute(sql: "ALTER TABLE entries_v2 RENAME TO entries")
+    let entries = try Row.fetchAll(database, sql: "SELECT * FROM entries_v1 ORDER BY created_at_ms, id")
+    for row in entries {
+      let id: String = row["id"]
+      let surface: String = row["surface_form"]
+      let encounter = try Row.fetchOne(database, sql: """
+        SELECT normalized_text FROM encounters_v1 WHERE entry_id = ?
+        ORDER BY captured_at_ms, created_at_ms, id LIMIT 1
+        """, arguments: [id])
+      let sentence: String? = encounter?["normalized_text"]
+      let range = sentence.map { ($0 as NSString).range(of: surface) }
+      let hasContext = range.map { $0.location != NSNotFound && $0.length > 0 } ?? false
+      try database.execute(sql: """
+        INSERT INTO entries
+        SELECT id, language, headword_key, surface_form, korean_gloss, english_definition, is_phrase,
+          created_at_ms, updated_at_ms, ?, ?, ? FROM entries_v1 WHERE id = ?
+        """, arguments: [
+          hasContext ? sentence : nil,
+          hasContext ? range!.location : nil,
+          hasContext ? range!.location + range!.length : nil, id,
+        ])
+    }
+    try v2MigrationFailureInjector?(.afterEntriesCopy)
+    try database.execute(sql: """
+      CREATE TABLE encounters_v2 (
+        id TEXT PRIMARY KEY NOT NULL CHECK(length(id) > 0),
+        entry_id TEXT REFERENCES entries(id) ON DELETE CASCADE,
+        selected_text TEXT NOT NULL CHECK(length(selected_text) > 0),
+        normalized_text TEXT NOT NULL CHECK(length(normalized_text) > 0),
+        surface_form TEXT NOT NULL CHECK(length(surface_form) > 0),
+        token_start INTEGER NOT NULL CHECK(token_start >= 0),
+        token_end INTEGER NOT NULL CHECK(token_end > token_start),
+        selection_utf16_start INTEGER,
+        selection_utf16_end INTEGER,
+        language TEXT NOT NULL CHECK(language IN ('english', 'japanese', 'mixed', 'und')),
+        captured_at_ms INTEGER NOT NULL CHECK(captured_at_ms >= 0),
+        status TEXT NOT NULL CHECK(status IN ('pending', 'complete', 'failed')),
+        attempt_count INTEGER NOT NULL CHECK(attempt_count >= 0),
+        next_retry_at_ms INTEGER CHECK(next_retry_at_ms >= 0),
+        last_error_kind TEXT,
+        generation INTEGER NOT NULL CHECK(generation >= 0),
+        created_at_ms INTEGER NOT NULL CHECK(created_at_ms >= 0),
+        updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms >= 0),
+        CHECK((status = 'complete') = (entry_id IS NOT NULL)),
+        CHECK((selection_utf16_start IS NULL) = (selection_utf16_end IS NULL)),
+        CHECK(selection_utf16_start IS NULL OR (selection_utf16_start >= 0 AND selection_utf16_end > selection_utf16_start))
+      )
+      """)
+    try database.execute(sql: """
+      INSERT INTO encounters_v2 (
+        id, entry_id, selected_text, normalized_text, surface_form, token_start, token_end,
+        selection_utf16_start, selection_utf16_end, language, captured_at_ms, status,
+        attempt_count, next_retry_at_ms, last_error_kind, generation, created_at_ms, updated_at_ms)
+      SELECT id, entry_id, selected_text, normalized_text, surface_form, token_start, token_end,
+        NULL, NULL, language, captured_at_ms, status, attempt_count, next_retry_at_ms,
+        last_error_kind, generation, created_at_ms, updated_at_ms FROM encounters_v1
+      """)
+    try database.execute(sql: "DROP TABLE encounters_v1")
+    try database.execute(sql: "DROP TABLE entries_v1")
+    try database.execute(sql: "ALTER TABLE encounters_v2 RENAME TO encounters")
+    try database.execute(sql: "CREATE INDEX entries_canonical ON entries(language, headword_key, surface_form, korean_gloss, english_definition)")
+    try database.execute(sql: "CREATE INDEX encounters_status_due ON encounters(status, next_retry_at_ms)")
+    try database.execute(sql: "CREATE INDEX encounters_entry_id ON encounters(entry_id)")
+    try database.execute(sql: "CREATE INDEX encounters_captured_at ON encounters(captured_at_ms)")
   }
 
   private static func createV1Schema(in database: Database) throws {

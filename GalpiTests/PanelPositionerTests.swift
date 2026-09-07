@@ -182,7 +182,7 @@ final class DiagnosticPanelStateTests: XCTestCase {
       frame: NSRect(x: 0, y: 0, width: 620, height: 340),
       document: try CaptureDocument(rawText: "A contextual term appears.")
     )
-    XCTAssertEqual(view.accessibilityHelp(), CaptureInputView.preConfirmationDisclosure)
+    XCTAssertEqual(view.accessibilityHelp(), ReleaseGuidance.capturePrivacy)
     XCTAssertTrue(view.hasCompleteAccessibilityContract)
     XCTAssertTrue(view.hasActionKeyLoop)
     XCTAssertTrue(ReleaseGuidance.apiKeyStored.contains("does not delete local Library records"))
@@ -198,17 +198,19 @@ final class DiagnosticPanelStateTests: XCTestCase {
     XCTAssertFalse(view.isRetryActionVisible)
     XCTAssertTrue(view.hasActionKeyLoop)
 
-    view.updateLookup(message: LookupFailureKind.missingKey.sanitizedMessage, showSettings: true)
+    view.updateLookup(
+      message: LookupFailureKind.missingKey.sanitizedMessage,
+      presentation: .failed(settingsAvailable: true, retryAvailable: false))
     XCTAssertTrue(view.isSettingsActionVisible)
     XCTAssertFalse(view.isRetryActionVisible)
     XCTAssertNil(view.displayedResult)
     XCTAssertTrue(view.hasActionKeyLoop)
-    XCTAssertTrue((view.accessibilityValue() as? String)?.contains("API key") == true)
+    XCTAssertEqual(view.accessibilityValue() as? String, "Lookup failed")
     XCTAssertTrue(view.accessibilityHelp()?.contains("settings is available") == true)
 
     view.updateLookup(
-      message: LookupFailureKind.authentication.sanitizedMessage, showSettings: true,
-      showRetry: true)
+      message: LookupFailureKind.authentication.sanitizedMessage,
+      presentation: .failed(settingsAvailable: true, retryAvailable: true))
     view.layoutSubtreeIfNeeded()
     XCTAssertTrue(view.isSettingsActionVisible)
     XCTAssertTrue(view.isRetryActionVisible)
@@ -216,21 +218,23 @@ final class DiagnosticPanelStateTests: XCTestCase {
     XCTAssertEqual(view.visibleActionFrames.count, 2)
     XCTAssertFalse(view.visibleActionFrames[0].intersects(view.visibleActionFrames[1]))
     XCTAssertTrue(view.visibleActionFrames.allSatisfy(view.bounds.contains))
-    XCTAssertFalse(view.accessibilityHelp()?.contains("sent to OpenAI") == true)
-    XCTAssertTrue(view.accessibilityHelp()?.contains("OpenAI requests use store:false") == true)
+    XCTAssertTrue(view.accessibilityHelp()?.contains("OpenAI store:false") == true)
 
     view.frame.size.width = 150
     view.layoutSubtreeIfNeeded()
     XCTAssertFalse(view.visibleActionFrames[0].intersects(view.visibleActionFrames[1]))
     XCTAssertTrue(view.visibleActionFrames.allSatisfy(view.bounds.contains))
 
-    view.updateLookup(message: "Temporary failure", showRetry: true)
+    view.updateLookup(
+      message: "Temporary failure",
+      presentation: .failed(settingsAvailable: false, retryAvailable: true))
     XCTAssertFalse(view.isSettingsActionVisible)
     XCTAssertTrue(view.isRetryActionVisible)
     XCTAssertTrue(view.hasActionKeyLoop)
 
     view.updateLookup(
       message: "Saved contextual definition",
+      presentation: .succeeded,
       koreanGloss: "문맥 뜻",
       englishDefinition: "a contextual meaning"
     )
@@ -239,6 +243,12 @@ final class DiagnosticPanelStateTests: XCTestCase {
     XCTAssertEqual(view.displayedResult, "문맥 뜻\na contextual meaning")
     XCTAssertTrue(view.hasActionKeyLoop)
     XCTAssertTrue((view.accessibilityValue() as? String)?.contains("a contextual meaning") == true)
+    XCTAssertFalse(view.isProgressIndicatorVisible)
+
+    view.updateLookup(message: "Queued", presentation: .queued)
+    XCTAssertTrue(view.isProgressIndicatorVisible)
+    XCTAssertEqual(view.accessibilityValue() as? String, "Lookup queued")
+    XCTAssertFalse((view.accessibilityValue() as? String)?.contains("OpenAI") == true)
   }
 
   func testConfirmationBoundaryInvokesPersistenceOnlyForEligibleSelection() throws {
@@ -248,83 +258,132 @@ final class DiagnosticPanelStateTests: XCTestCase {
       confirmations.append($0)
       return "opaque-id"
     }
-    let invocation = ServiceInvocation(
-      wallTime: Date(),
-      uptime: ProcessInfo.processInfo.systemUptime
-    )
-
     let overlong = try CaptureDocument(rawText: String(repeating: "a", count: 501))
-    controller.show(document: overlong, invocation: invocation)
+    controller.show(document: overlong)
     controller.handleAction("return", state: CaptureSelectionState(document: overlong))
     XCTAssertTrue(confirmations.isEmpty)
 
     let eligible = try CaptureDocument(rawText: "A contextual term appears.")
-    controller.show(document: eligible, invocation: invocation)
+    controller.show(document: eligible)
     controller.handleAction("return", state: CaptureSelectionState(document: eligible))
     XCTAssertEqual(confirmations.count, 1)
     XCTAssertEqual(confirmations[0].surfaceForm, "A")
     XCTAssertEqual(confirmations[0].tokenStart, 0)
     XCTAssertEqual(confirmations[0].tokenEnd, 1)
+    XCTAssertEqual(confirmations[0].selectionUTF16Start, 0)
+    XCTAssertEqual(confirmations[0].selectionUTF16End, 1)
     controller.shutdown()
   }
-}
 
-final class EvidencePrivacyTests: XCTestCase {
-  func testEvidenceSchemaContainsOnlyContentFreeFields() {
-    let keys = Set(Evidence.CodingKeys.allCases.map(\.rawValue))
-    let expected: Set<String> = [
-      "event", "wallTime", "uptime", "callbackWallTime", "callbackUptime",
-      "panelIsKeyWindow", "panelIsMainWindow", "firstResponderCategory",
-      "screenFrame", "pointerLocation", "panelFrame", "normalizedScalarCount",
-      "tokenCount", "selectedTokenCount", "selectedSurfaceScalarCount",
-      "confirmationEligible", "detail",
-    ]
-
-    XCTAssertEqual(keys, expected)
-    for forbidden in [
-      "selectedText", "selectedSurface", "clipboard", "title", "url",
-      "sourceApp", "bundleIdentifier", "applicationName", "processIdentifier",
-      "pasteboardTypes",
-    ] {
-      XCTAssertFalse(keys.contains(forbidden))
+  func testTokenLayoutReservesPaddingGapAndWrapsBeforePlacement() throws {
+    let view = CaptureInputView(
+      frame: NSRect(x: 0, y: 0, width: 100, height: 220),
+      document: try CaptureDocument(rawText: "猫犬猫犬猫犬"))
+    let snapshot = view.tokenLayoutSnapshot
+    XCTAssertGreaterThan(snapshot.fragments.count, 1)
+    let first = snapshot.fragments[0]
+    let second = snapshot.fragments[1]
+    XCTAssertEqual(first.glyphRect.maxX + 4, first.drawRect.maxX, accuracy: 0.001)
+    XCTAssertEqual(second.drawRect.minX + 4, second.glyphRect.minX, accuracy: 0.001)
+    XCTAssertEqual(
+      snapshot.token(at: CGPoint(x: first.drawRect.minX + 1, y: first.drawRect.midY)),
+      first.tokenIndex)
+    if first.lineID == second.lineID {
+      XCTAssertEqual(second.drawRect.minX - first.drawRect.maxX, 4, accuracy: 0.001)
     }
   }
 
-  func testEncodedEvidenceCannotContainSentenceOrSelectedSurfaceFields() throws {
-    let evidence = Evidence(
-      event: "panelAction",
-      wallTime: Date(timeIntervalSince1970: 0),
-      uptime: 1,
-      callbackWallTime: nil,
-      callbackUptime: nil,
-      panelIsKeyWindow: true,
-      panelIsMainWindow: false,
-      firstResponderCategory: .captureSelection,
-      screenFrame: CGRect(x: 0, y: 0, width: 100, height: 100),
-      pointerLocation: CGPoint(x: 10, y: 10),
-      panelFrame: CGRect(x: 0, y: 0, width: 50, height: 50),
-      normalizedScalarCount: 12,
-      tokenCount: 3,
-      selectedTokenCount: 2,
-      selectedSurfaceScalarCount: 8,
-      confirmationEligible: true,
-      detail: "shiftRight"
-    )
+  func testTokenLayoutSameLineFallbackIsBoundedAndDeterministic() {
+    let fragments = [
+      TokenLayoutFragment(tokenIndex: 1, utf16Range: NSRange(location: 0, length: 1), lineID: 0,
+        glyphRect: CGRect(x: 10, y: 0, width: 5, height: 10), drawRect: CGRect(x: 6, y: 0, width: 13, height: 10), hitRect: CGRect(x: 6, y: 0, width: 13, height: 10)),
+      TokenLayoutFragment(tokenIndex: 2, utf16Range: NSRange(location: 1, length: 1), lineID: 0,
+        glyphRect: CGRect(x: 35, y: 0, width: 5, height: 10), drawRect: CGRect(x: 31, y: 0, width: 13, height: 10), hitRect: CGRect(x: 31, y: 0, width: 13, height: 10)),
+    ]
+    let snapshot = TokenLayoutSnapshot(
+      fragments: fragments, lines: [TokenLayoutLine(lineID: 0, yRange: 0...10)], contentHeight: 10)
+    XCTAssertEqual(snapshot.token(at: CGPoint(x: 25, y: 5)), 1)
+    XCTAssertNil(snapshot.token(at: CGPoint(x: 25, y: 30)))
+    XCTAssertNil(snapshot.token(at: CGPoint(x: 80, y: 5)))
+  }
 
-    let json = String(decoding: try JSONEncoder().encode(evidence), as: UTF8.self)
-    XCTAssertFalse(json.contains("selectedText"))
-    XCTAssertFalse(json.contains("selectedSurface\""))
-    XCTAssertFalse(json.contains("sourceApp"))
-    XCTAssertFalse(json.contains("bundleIdentifier"))
-    XCTAssertFalse(json.contains("com.vendor.product.private-type"))
-    XCTAssertFalse(json.contains("pasteboardTypes"))
-    XCTAssertTrue(json.contains("\"firstResponderCategory\":\"captureSelection\""))
-    XCTAssertEqual(
-      Set([
-        EvidenceResponderCategory.captureSelection.rawValue,
-        EvidenceResponderCategory.actionButton.rawValue,
-        EvidenceResponderCategory.other.rawValue,
-      ]),
-      Set(["captureSelection", "actionButton", "other"]))
+  func testLongDocumentScrollsToBothExtremesAndDisabledSelectionDoesNotMove() throws {
+    let view = CaptureInputView(
+      frame: NSRect(x: 0, y: 0, width: 160, height: 180),
+      document: try CaptureDocument(rawText: String(repeating: "猫 Swift ", count: 250)))
+    let snapshot = view.tokenLayoutSnapshot
+    XCTAssertGreaterThan(snapshot.contentHeight, 26)
+    view.scrollContent(by: -10_000)
+    XCTAssertGreaterThan(view.currentTextScrollOffset, 0)
+    view.scrollContent(by: 10_000)
+    XCTAssertEqual(view.currentTextScrollOffset, 0, accuracy: 0.001)
+  }
+
+  func testHoverClearsAndConfirmedCaptureDisablesTokenPresentation() throws {
+    let view = CaptureInputView(
+      frame: NSRect(x: 0, y: 0, width: 220, height: 180),
+      document: try CaptureDocument(rawText: "one two"))
+    let second = try XCTUnwrap(view.tokenLayoutSnapshot.fragments.first(where: { $0.tokenIndex == 1 }))
+    view.updateHover(at: CGPoint(x: second.hitRect.midX, y: second.hitRect.midY))
+    XCTAssertEqual(view.visualState(for: 1), .hovered)
+    view.updateHover(at: nil)
+    XCTAssertEqual(view.visualState(for: 1), .unselected)
+    view.attachEncounter("id")
+    XCTAssertEqual(view.visualState(for: 0), .disabled)
+  }
+
+  func testPresentationTransitionMatrixKeepsProgressAndAXSemantic() throws {
+    let view = CaptureInputView(
+      frame: NSRect(x: 0, y: 0, width: 620, height: 340),
+      document: try CaptureDocument(rawText: "ligature ﬁancée 👩🏽‍💻"))
+    let cases: [(CapturePresentationState, Bool, String)] = [
+      (.selecting, false, "Selection state"),
+      (.queued, true, "Lookup queued"),
+      (.waitingForConnectivity, true, "Lookup waiting for connection"),
+      (.running, true, "Lookup in progress"),
+      (.retryScheduled, true, "Lookup retry scheduled"),
+      (.storageUnavailable, false, "Lookup storage unavailable"),
+      (.failed(settingsAvailable: true, retryAvailable: false), false, "Lookup failed"),
+      (.succeeded, false, "Lookup complete"),
+    ]
+    for (state, spinning, value) in cases {
+      view.updateLookup(message: "visible state", presentation: state)
+      XCTAssertEqual(view.isProgressIndicatorVisible, spinning)
+      XCTAssertEqual(view.accessibilityValue() as? String, value)
+      XCTAssertFalse((view.accessibilityValue() as? String)?.contains("OpenAI") == true)
+      XCTAssertFalse((view.accessibilityValue() as? String)?.contains("Luna") == true)
+    }
+    view.attachEncounter("synthetic-id")
+    view.updateLookup(
+      message: "Synthetic meaning", presentation: .succeeded,
+      koreanGloss: "합성 뜻", englishDefinition: "synthetic definition")
+    XCTAssertEqual(view.visualState(for: 0), .disabled)
+    XCTAssertEqual(view.displayedResult, "합성 뜻\nsynthetic definition")
+    view.layoutSubtreeIfNeeded()
+    let representation = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+    view.cacheDisplay(in: view.bounds, to: representation)
+    let image = NSImage(size: view.bounds.size)
+    image.addRepresentation(representation)
+    let attachment = XCTAttachment(image: image)
+    attachment.name = "M5 synthetic capture panel"
+    attachment.lifetime = .keepAlways
+    add(attachment)
+  }
+
+  func testTextKitSnapshotDoesNotSplitCombiningEmojiOrLigatureClusters() throws {
+    let view = CaptureInputView(
+      frame: NSRect(x: 0, y: 0, width: 92, height: 180),
+      document: try CaptureDocument(rawText: "ﬁancée e\u{301} 👩🏽‍💻"))
+    let text = view.state.document.normalizedText as NSString
+    for fragment in view.tokenLayoutSnapshot.fragments where fragment.tokenIndex >= 0 {
+      XCTAssertNoThrow(text.substring(with: fragment.utf16Range))
+      XCTAssertGreaterThan(fragment.utf16Range.length, 0)
+      XCTAssertNotEqual(fragment.sourceGlyphRange.location, NSNotFound)
+      XCTAssertNotNil(Range(fragment.utf16Range, in: view.state.document.normalizedText))
+    }
+    let narrowRects = view.tokenLayoutSnapshot.fragments.map(\.drawRect)
+    view.frame.size.width = 220
+    view.layoutSubtreeIfNeeded()
+    XCTAssertNotEqual(view.tokenLayoutSnapshot.fragments.map(\.drawRect), narrowRects)
   }
 }

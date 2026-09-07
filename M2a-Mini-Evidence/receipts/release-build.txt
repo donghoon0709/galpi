@@ -1,7 +1,0 @@
-Command: xcodebuild -project Galpi.xcodeproj -scheme Galpi -configuration Release -destination platform=macOS build
-Exit: 0
-Product: Galpi.app
-Identifier: com.galpi.app
-Architecture: arm64
-Signing identity/account retained: false
-** BUILD SUCCEEDED **

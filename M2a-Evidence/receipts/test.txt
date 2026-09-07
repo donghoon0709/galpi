@@ -1,5 +1,0 @@
-Command: xcodebuild -project Galpi.xcodeproj -scheme Galpi -destination platform=macOS test
-Exit: 0
-Tests: 54 passed, 0 failed
-Artifact: M2a-Evidence/receipts/test-report.json
-** TEST SUCCEEDED **

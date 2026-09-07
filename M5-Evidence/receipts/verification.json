@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "sourceHash": "sha256:3a3aaffeed52cd0b00000380de85e134fea1b3c4db887facabd86a13aaaad2a8",
+  "xctest": {
+    "result": "Passed",
+    "passedTests": 155,
+    "failedTests": 0,
+    "skippedTests": 0,
+    "summary": "M5-Evidence/receipts/full-xctest.json",
+    "resultBundle": "M5-Evidence/receipts/Galpi-M5.xcresult"
+  },
+  "nativeUI": {
+    "manifest": "M5-Evidence/ui/manifest.json",
+    "contentPolicy": "synthetic-only",
+    "scenario": "confirmed encounter followed by resolved synthetic result"
+  },
+  "semanticGate": {
+    "result": "Passed",
+    "directory": "Semantic-Gate-Evidence/m5-classification-final-v2-2026-08-31",
+    "exactTypeCount": 4,
+    "semanticPassCount": 4,
+    "candidateFailureCount": 0,
+    "judgeFailureCount": 0,
+    "p95CandidateLatencyMilliseconds": 2032,
+    "totalCostUSD": 0.0093922
+  }
+}

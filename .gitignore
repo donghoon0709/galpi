@@ -3,3 +3,7 @@
 .env
 .env.*
 !.env.example
+
+# Local milestone verification artifacts
+*-Evidence/
+*-QA.md

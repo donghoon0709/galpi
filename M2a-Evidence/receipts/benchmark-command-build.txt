@@ -1,1 +1,0 @@
-swiftc M2a benchmark command: succeeded

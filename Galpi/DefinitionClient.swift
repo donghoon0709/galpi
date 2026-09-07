@@ -3,7 +3,7 @@ import Foundation
 internal enum DefinitionContract {
   static let endpoint = ResponsesCore.endpoint.absoluteString
   static let systemPrompt =
-    "Return only a JSON object matching the requested schema. Give a concise Korean gloss and an English definition for the selected surface in its sentence context. Copy the selected surface exactly into selected_surface."
+    "Return only a JSON object matching the requested schema. Give a concise Korean gloss and an English definition for the selected surface in its sentence context. Copy the selected surface exactly into selected_surface. Set `type` to `phrase` only when the selected surface is a multi-token expression; otherwise set it to `word`."
   static let maximumOutputTokens = 800
   static let deadlineMilliseconds = 10_000
   static let stream = true
@@ -21,11 +21,12 @@ internal enum DefinitionContract {
     [
       "type": "object",
       "additionalProperties": false,
-      "required": ["selected_surface", "korean_gloss", "english_definition"],
+      "required": ["selected_surface", "korean_gloss", "english_definition", "type"],
       "properties": [
         "selected_surface": ["type": "string"],
         "korean_gloss": ["type": "string"],
         "english_definition": ["type": "string"],
+        "type": ["type": "string", "enum": ["word", "phrase"]],
       ],
     ]
   }
@@ -91,9 +92,16 @@ internal struct DefinitionClientRequest: Sendable {
   }
 }
 
+internal enum DefinitionClassification: Equatable, Sendable {
+  case word
+  case phrase
+  case fallbackRequired
+}
+
 internal struct DefinitionClientResult: Equatable, Sendable {
   let koreanGloss: String
   let englishDefinition: String
+  let classification: DefinitionClassification
   let inputTokens: Int
   let cachedInputTokens: Int
   let outputTokens: Int
@@ -433,8 +441,9 @@ private struct OutputState {
     do { value = try JSONSerialization.jsonObject(with: Data(text.utf8)) } catch {
       throw DefinitionClientError.invalidJSON
     }
-    guard let dictionary = value as? [String: Any], dictionary.count == 3,
-      Set(dictionary.keys) == Set(["selected_surface", "korean_gloss", "english_definition"]),
+    guard let dictionary = value as? [String: Any],
+      Set(dictionary.keys).isSubset(of: ["selected_surface", "korean_gloss", "english_definition", "type"]),
+      Set(dictionary.keys).isSuperset(of: ["selected_surface", "korean_gloss", "english_definition"]),
       let selectedSurface = dictionary["selected_surface"] as? String,
       let koreanGloss = dictionary["korean_gloss"] as? String,
       let englishDefinition = dictionary["english_definition"] as? String,
@@ -446,9 +455,19 @@ private struct OutputState {
     guard selectedSurface == expectedSurface else {
       throw DefinitionClientError.selectedSurfaceMismatch
     }
+    let classification: DefinitionClassification
+    switch dictionary["type"] as? String {
+    case "word"?:
+      classification = .word
+    case "phrase"?:
+      classification = .phrase
+    default:
+      classification = .fallbackRequired
+    }
     return DefinitionClientResult(
       koreanGloss: koreanGloss,
       englishDefinition: englishDefinition,
+      classification: classification,
       inputTokens: usage.inputTokens,
       cachedInputTokens: usage.cachedInputTokens,
       outputTokens: usage.outputTokens

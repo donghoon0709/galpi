@@ -150,7 +150,23 @@
       isa = PBXBuildFile;
       fileRef = C10000000000000000000053;
     };
+    C10000000000000000000055 /* SettingsController.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = C10000000000000000000054;
+    };
     /* End PBXBuildFile section */
+    D50000000000000000000001 /* main.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = D50000000000000000000002;
+    };
+    D50000000000000000000003 /* DefinitionClient.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = A10000000000000000000019;
+    };
+    D50000000000000000000004 /* SemanticJudgeClient.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = A10000000000000000000027;
+    };
 
     /* Begin PBXFileReference section */
     A10000000000000000000011 /* main.swift */ = {
@@ -335,6 +351,25 @@
       path = LibraryControllerTests.swift;
       sourceTree = "<group>";
     };
+    C10000000000000000000054 /* SettingsController.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = SettingsController.swift;
+      sourceTree = "<group>";
+    };
+    D50000000000000000000002 /* main.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = main.swift;
+      sourceTree = "<group>";
+    };
+    D50000000000000000000005 /* M5SemanticClassificationGate */ = {
+      isa = PBXFileReference;
+      explicitFileType = "compiled.mach-o.executable";
+      includeInIndex = 0;
+      path = M5SemanticClassificationGate;
+      sourceTree = BUILT_PRODUCTS_DIR;
+    };
     /* End PBXFileReference section */
 
     /* Begin PBXFrameworksBuildPhase section */
@@ -357,6 +392,7 @@
       isa = PBXGroup;
       children = (
         A10000000000000000000032 /* Galpi */, A10000000000000000000033 /* GalpiTests */,
+        D50000000000000000000006 /* M5SemanticClassificationGate */,
         A10000000000000000000034 /* Products */
       );
       sourceTree = "<group>";
@@ -377,6 +413,7 @@
         C10000000000000000000032 /* KeychainAPIKeyStore.swift */,
         C10000000000000000000050 /* LookupExecutor.swift */,
         C10000000000000000000052 /* LibraryController.swift */,
+        C10000000000000000000054 /* SettingsController.swift */,
         A10000000000000000000012 /* NonactivatingPanel.swift */,
         A10000000000000000000014 /* Info.plist */,
         C10000000000000000000035 /* Galpi.entitlements */
@@ -406,9 +443,16 @@
     A10000000000000000000034 /* Products */ = {
       isa = PBXGroup;
       children = (
-        A10000000000000000000015 /* Galpi.app */, A10000000000000000000016 /* GalpiTests.xctest */
+        A10000000000000000000015 /* Galpi.app */, A10000000000000000000016 /* GalpiTests.xctest */,
+        D50000000000000000000005 /* M5SemanticClassificationGate */
       );
       name = Products;
+      sourceTree = "<group>";
+    };
+    D50000000000000000000006 /* M5SemanticClassificationGate */ = {
+      isa = PBXGroup;
+      children = (D50000000000000000000002 /* main.swift */);
+      path = Tools/M5SemanticClassificationGate;
       sourceTree = "<group>";
     };
     /* End PBXGroup section */
@@ -442,6 +486,18 @@
       productReference = A10000000000000000000016 /* GalpiTests.xctest */;
       productType = "com.apple.product-type.bundle.unit-test";
     };
+    D50000000000000000000008 /* M5SemanticClassificationGate */ = {
+      isa = PBXNativeTarget;
+      buildConfigurationList = D50000000000000000000009 /* Build configuration list for PBXNativeTarget "M5SemanticClassificationGate" */;
+      buildPhases = (D5000000000000000000000A /* Sources */);
+      buildRules = ();
+      dependencies = ();
+      name = M5SemanticClassificationGate;
+      packageProductDependencies = ();
+      productName = M5SemanticClassificationGate;
+      productReference = D50000000000000000000005 /* M5SemanticClassificationGate */;
+      productType = "com.apple.product-type.tool";
+    };
     /* End PBXNativeTarget section */
 
     /* Begin PBXProject section */
@@ -468,7 +524,7 @@
       productRefGroup = A10000000000000000000034 /* Products */;
       projectDirPath = "";
       projectRoot = "";
-      targets = (A10000000000000000000041 /* Galpi */, A10000000000000000000042 /* GalpiTests */);
+      targets = (A10000000000000000000041 /* Galpi */, A10000000000000000000042 /* GalpiTests */, D50000000000000000000008 /* M5SemanticClassificationGate */);
     };
     /* End PBXProject section */
 
@@ -485,6 +541,7 @@
         C10000000000000000000024 /* KeychainAPIKeyStore.swift in Sources */,
         C10000000000000000000040 /* LookupExecutor.swift in Sources */,
         C10000000000000000000043 /* LibraryController.swift in Sources */,
+        C10000000000000000000055 /* SettingsController.swift in Sources */,
         A10000000000000000000002 /* NonactivatingPanel.swift in Sources */
       );
       runOnlyForDeploymentPostprocessing = 0;
@@ -518,6 +575,16 @@
         C10000000000000000000027 /* KeychainAPIKeyStoreTests.swift in Sources */,
         C10000000000000000000042 /* LookupExecutorTests.swift in Sources */,
         C10000000000000000000045 /* LibraryControllerTests.swift in Sources */
+      );
+      runOnlyForDeploymentPostprocessing = 0;
+    };
+    D5000000000000000000000A /* Sources */ = {
+      isa = PBXSourcesBuildPhase;
+      buildActionMask = 2147483647;
+      files = (
+        D50000000000000000000001 /* main.swift in Sources */,
+        D50000000000000000000003 /* DefinitionClient.swift in Sources */,
+        D50000000000000000000004 /* SemanticJudgeClient.swift in Sources */
       );
       runOnlyForDeploymentPostprocessing = 0;
     };
@@ -627,6 +694,29 @@
       };
       name = Release;
     };
+    D5000000000000000000000B /* Debug */ = {
+      isa = XCBuildConfiguration;
+      buildSettings = {
+        CODE_SIGNING_ALLOWED = NO;
+        MACOSX_DEPLOYMENT_TARGET = 14.0;
+        OTHER_SWIFT_FLAGS = "-parse-as-library";
+        PRODUCT_NAME = "$(TARGET_NAME)";
+        SWIFT_VERSION = 6.0;
+      };
+      name = Debug;
+    };
+    D5000000000000000000000C /* Release */ = {
+      isa = XCBuildConfiguration;
+      buildSettings = {
+        CODE_SIGNING_ALLOWED = NO;
+        MACOSX_DEPLOYMENT_TARGET = 14.0;
+        OTHER_SWIFT_FLAGS = "-parse-as-library";
+        PRODUCT_NAME = "$(TARGET_NAME)";
+        SWIFT_COMPILATION_MODE = wholemodule;
+        SWIFT_VERSION = 6.0;
+      };
+      name = Release;
+    };
     /* End XCBuildConfiguration section */
 
     /* Begin XCRemoteSwiftPackageReference section */
@@ -674,6 +764,14 @@
       isa = XCConfigurationList;
       buildConfigurations = (
         A10000000000000000000091 /* Debug */, A10000000000000000000092 /* Release */
+      );
+      defaultConfigurationIsVisible = 0;
+      defaultConfigurationName = Release;
+    };
+    D50000000000000000000009 /* Build configuration list for PBXNativeTarget "M5SemanticClassificationGate" */ = {
+      isa = XCConfigurationList;
+      buildConfigurations = (
+        D5000000000000000000000B /* Debug */, D5000000000000000000000C /* Release */
       );
       defaultConfigurationIsVisible = 0;
       defaultConfigurationName = Release;

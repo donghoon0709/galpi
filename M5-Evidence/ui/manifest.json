@@ -1,0 +1,17 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "00008103-001255900E33001E",
+        "deviceName" : "My Mac",
+        "exportedFileName" : "3AC91310-6A9A-456D-8739-45427B4DBB30.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "M5 synthetic capture panel_0_B7188EFF-87EF-4CEB-8C21-CCEAA74DC88E.png",
+        "timestamp" : 1788104466.182
+      }
+    ],
+    "testIdentifier" : "DiagnosticPanelStateTests/testPresentationTransitionMatrixKeepsProgressAndAXSemantic()",
+    "testIdentifierURL" : "test://com.apple.xcode/Galpi/GalpiTests/DiagnosticPanelStateTests/testPresentationTransitionMatrixKeepsProgressAndAXSemantic"
+  }
+]

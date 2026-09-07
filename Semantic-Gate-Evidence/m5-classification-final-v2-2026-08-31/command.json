@@ -1,0 +1,26 @@
+{
+  "build" : {
+    "argv" : [
+      "xcodebuild",
+      "build",
+      "-project",
+      "Galpi.xcodeproj",
+      "-scheme",
+      "M5SemanticClassificationGate",
+      "-configuration",
+      "Release",
+      "-derivedDataPath",
+      ".derived-data/M5SemanticClassificationGate-Release"
+    ],
+    "exit" : 0
+  },
+  "run" : {
+    "argv" : [
+      "M5SemanticClassificationGate",
+      "--build-record-env",
+      "M5_GATE_BUILD_RECORD"
+    ],
+    "outcome" : "success"
+  },
+  "timestamp" : "2026-08-31T00:43:08+09:00"
+}

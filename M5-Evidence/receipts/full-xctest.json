@@ -1,0 +1,46 @@
+{
+  "devicesAndConfigurations" : [
+    {
+      "device" : {
+        "architecture" : "arm64",
+        "deviceId" : "00008103-001255900E33001E",
+        "deviceName" : "My Mac",
+        "modelName" : "MacBook Air",
+        "osBuildNumber" : "25A354",
+        "osVersion" : "26.0",
+        "platform" : "macOS"
+      },
+      "expectedFailures" : 0,
+      "failedTests" : 0,
+      "passedTests" : 155,
+      "skippedTests" : 0,
+      "testPlanConfiguration" : {
+        "configurationId" : "1",
+        "configurationName" : "Test Scheme Action"
+      }
+    }
+  ],
+  "environmentDescription" : "Galpi · Built with macOS 26.0",
+  "expectedFailures" : 0,
+  "failedTests" : 0,
+  "finishTime" : 1788104473.432,
+  "passedTests" : 155,
+  "result" : "Passed",
+  "skippedTests" : 0,
+  "startTime" : 1788104447.356,
+  "statistics" : [
+
+  ],
+  "testFailures" : [
+
+  ],
+  "title" : "Test - Galpi",
+  "topInsights" : [
+    {
+      "category" : "Longest Test Runs",
+      "impact" : "34% of duration",
+      "text" : "2 longest test runs with outlier durations exceeding 1.13s (three standard deviations)"
+    }
+  ],
+  "totalTestCount" : 155
+}

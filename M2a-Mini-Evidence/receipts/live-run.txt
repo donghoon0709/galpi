@@ -1,4 +1,0 @@
-Command: MODEL_GATE_MODE=gpt-5.4-mini-escalation MODEL_GATE_OUTPUT_DIRECTORY=./M2a-Mini-Evidence/live /tmp/galpi-m2a-mini-benchmark
-Exit: 0
-Requests: 72
-Provider output retained: false

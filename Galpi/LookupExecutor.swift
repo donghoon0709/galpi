@@ -387,13 +387,19 @@ internal actor LookupExecutor {
         await recoverCancelledClaim(work)
         return
       }
+      let isPhrase: Bool
+      switch result.classification {
+      case .word: isPhrase = false
+      case .phrase: isPhrase = true
+      case .fallbackRequired: isPhrase = claimed.tokenEnd - claimed.tokenStart > 1
+      }
       let entry = EntryPayload(
         language: claimed.language,
         headwordKey: EntryCanonicalizer.headwordKey(claimed.surfaceForm),
         surfaceForm: EntryCanonicalizer.surface(claimed.surfaceForm),
         koreanGloss: result.koreanGloss,
         englishDefinition: result.englishDefinition,
-        isPhrase: claimed.tokenEnd - claimed.tokenStart > 1)
+        isPhrase: isPhrase)
       if let completed = await persistCompletion(entry, work: work) {
         emit(.succeeded(encounterID: work.id, entry: completed))
       } else if Task.isCancelled || isShutdown {

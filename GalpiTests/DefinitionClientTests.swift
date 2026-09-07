@@ -5,10 +5,10 @@ final class DefinitionClientTests: XCTestCase {
   func testSuccessfulSplitFramesProduceValidatedResult() async throws {
     let transport = ScriptedTransport(chunks: [
       "event: response.output_text.delta\ndata: {\"delta\":\"{\\\"selected_surface\\\":\\\"word\\\",\\\"korean_",
-      "gloss\\\":\\\"뜻\\\",\\\"english_definition\\\":\\\"meaning\\\"}\"}\n\n",
+      "gloss\\\":\\\"뜻\\\",\\\"english_definition\\\":\\\"meaning\\\",\\\"type\\\":\\\"word\\\"}\"}\n\n",
       completedEvent(
         text:
-          "{\"selected_surface\":\"word\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\"}"
+          "{\"selected_surface\":\"word\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\",\"type\":\"word\"}"
       ),
     ])
     let result = try await client(transport).define(request())
@@ -17,6 +17,7 @@ final class DefinitionClientTests: XCTestCase {
       .init(
         koreanGloss: "뜻",
         englishDefinition: "meaning",
+        classification: .word,
         inputTokens: 7,
         cachedInputTokens: 0,
         outputTokens: 5
@@ -25,10 +26,10 @@ final class DefinitionClientTests: XCTestCase {
 
   func testCRLFCommentsAndMultilineDataAreDecoded() async throws {
     let transport = ScriptedTransport(chunks: [
-      ": heartbeat\r\nevent: response.output_text.delta\r\ndata: {\r\ndata: \"delta\":\"{\\\"selected_surface\\\":\\\"word\\\",\\\"korean_gloss\\\":\\\"뜻\\\",\\\"english_definition\\\":\\\"meaning\\\"}\"}\r\n\r\n",
+      ": heartbeat\r\nevent: response.output_text.delta\r\ndata: {\r\ndata: \"delta\":\"{\\\"selected_surface\\\":\\\"word\\\",\\\"korean_gloss\\\":\\\"뜻\\\",\\\"english_definition\\\":\\\"meaning\\\",\\\"type\\\":\\\"word\\\"}\"}\r\n\r\n",
       completedEvent(
         text:
-          "{\"selected_surface\":\"word\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\"}"
+          "{\"selected_surface\":\"word\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\",\"type\":\"word\"}"
       )
       .replacingOccurrences(of: "\n", with: "\r\n"),
     ])
@@ -38,10 +39,10 @@ final class DefinitionClientTests: XCTestCase {
 
   func testTypeOnlySSEEventDerivesNameFromJSONType() async throws {
     let delta =
-      "data: {\"type\":\"response.output_text.delta\",\"delta\":\"{\\\"selected_surface\\\":\\\"word\\\",\\\"korean_gloss\\\":\\\"뜻\\\",\\\"english_definition\\\":\\\"meaning\\\"}\"}\n\n"
+      "data: {\"type\":\"response.output_text.delta\",\"delta\":\"{\\\"selected_surface\\\":\\\"word\\\",\\\"korean_gloss\\\":\\\"뜻\\\",\\\"english_definition\\\":\\\"meaning\\\",\\\"type\\\":\\\"word\\\"}\"}\n\n"
     let completed = completedEvent(
       text:
-        "{\"selected_surface\":\"word\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\"}",
+        "{\"selected_surface\":\"word\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\",\"type\":\"word\"}",
       typeOnly: true)
     let result = try await client(ScriptedTransport(chunks: [delta + completed])).define(request())
     XCTAssertEqual(result.inputTokens, 7)
@@ -49,7 +50,7 @@ final class DefinitionClientTests: XCTestCase {
 
   func testNormalResponsesLifecycleEventsAreAccepted() async throws {
     let text =
-      "{\"selected_surface\":\"word\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\"}"
+      "{\"selected_surface\":\"word\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\",\"type\":\"word\"}"
     let escaped = text.replacingOccurrences(of: "\"", with: "\\\"")
     let lifecycle = [
       "response.created",
@@ -74,7 +75,7 @@ final class DefinitionClientTests: XCTestCase {
     let transport = ScriptedTransport(chunks: [
       completedEvent(
         text:
-          "{\"selected_surface\":\"selected\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\"}"
+          "{\"selected_surface\":\"selected\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\",\"type\":\"word\"}"
       )
     ])
     _ = try await client(transport, model: "configured-model").define(
@@ -94,13 +95,22 @@ final class DefinitionClientTests: XCTestCase {
     let schema = try XCTUnwrap(format?["schema"] as? [String: Any])
     let properties = try XCTUnwrap(schema["properties"] as? [String: Any])
     XCTAssertEqual(
-      Set(properties.keys), Set(["selected_surface", "korean_gloss", "english_definition"]))
+      Set(properties.keys), Set(["selected_surface", "korean_gloss", "english_definition", "type"]))
+    XCTAssertEqual(schema["required"] as? [String], [
+      "selected_surface", "korean_gloss", "english_definition", "type",
+    ])
+    XCTAssertEqual((properties["type"] as? [String: Any])?["enum"] as? [String], ["word", "phrase"])
     let input = try XCTUnwrap(body["input"] as? [[String: Any]])
     let systemText = try XCTUnwrap(
       (((input[0]["content"] as? [[String: Any]])?.first)?["text"] as? String))
     let userText = try XCTUnwrap(
       (((input[1]["content"] as? [[String: Any]])?.first)?["text"] as? String))
     XCTAssertTrue(systemText.contains("JSON"))
+    XCTAssertEqual(
+      systemText.components(separatedBy:
+        "Set `type` to `phrase` only when the selected surface is a multi-token expression; otherwise set it to `word`."
+      ).count,
+      2)
     XCTAssertTrue(userText.contains("Sentence: A selected phrase."))
     XCTAssertTrue(userText.contains("Selected surface: selected"))
     let promptContract = try XCTUnwrap(
@@ -174,10 +184,10 @@ final class DefinitionClientTests: XCTestCase {
   func testURLProtocolTransportHandlesSplitSSEAndHTTPStatus() async throws {
     let delta =
       "event: response.output_text.delta\ndata: {\"delta\":\"{\\\"selected_surface\\\":\\\"word\\\",\\\"korean_gloss\\\":\\\"뜻\\\","
-    let remainder = "\\\"english_definition\\\":\\\"meaning\\\"}\"}\n\n"
+    let remainder = "\\\"english_definition\\\":\\\"meaning\\\",\\\"type\\\":\\\"word\\\"}\"}\n\n"
     let completed = completedEvent(
       text:
-        "{\"selected_surface\":\"word\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\"}"
+        "{\"selected_surface\":\"word\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\",\"type\":\"word\"}"
     )
     URLProtocolFixtureState.shared.configure(
       statusCode: 200, chunks: [delta, remainder, completed])
@@ -191,6 +201,7 @@ final class DefinitionClientTests: XCTestCase {
       .init(
         koreanGloss: "뜻",
         englishDefinition: "meaning",
+        classification: .word,
         inputTokens: 7,
         cachedInputTokens: 0,
         outputTokens: 5
@@ -220,7 +231,7 @@ final class DefinitionClientTests: XCTestCase {
       chunks: [
         completedEvent(
           text:
-            "{\"selected_surface\":\"word\",\"korean_gloss\":\" \",\"english_definition\":\"meaning\"}"
+            "{\"selected_surface\":\"word\",\"korean_gloss\":\" \",\"english_definition\":\"meaning\",\"type\":\"word\"}"
         )
       ])
     await assertError(
@@ -228,7 +239,7 @@ final class DefinitionClientTests: XCTestCase {
       chunks: [
         completedEvent(
           text:
-            "{\"selected_surface\":\"word\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\"}",
+            "{\"selected_surface\":\"word\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\",\"type\":\"word\"}",
           usage: nil)
       ])
     await assertError(
@@ -236,7 +247,7 @@ final class DefinitionClientTests: XCTestCase {
       chunks: [
         completedEvent(
           text:
-            "{\"selected_surface\":\"different\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\"}"
+            "{\"selected_surface\":\"different\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\",\"type\":\"word\"}"
         )
       ])
     await assertError(
@@ -245,7 +256,7 @@ final class DefinitionClientTests: XCTestCase {
         "event: response.output_text.delta\ndata: {\"delta\":\"{\\\"selected_surface\\\":\\\"word\\\",\\\"korean_gloss\\\":\\\"뜻\\\",\\\"english_definition\\\":\\\"meaning\\\"}\"}\n\n"
           + completedEvent(
             text:
-              "{\"selected_surface\":\"word\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\"}",
+              "{\"selected_surface\":\"word\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\",\"type\":\"word\"}",
             terminalTexts: [])
       ])
     await assertError(
@@ -254,9 +265,40 @@ final class DefinitionClientTests: XCTestCase {
         "event: response.output_text.done\ndata: {\"text\":\"{\\\"selected_surface\\\":\\\"word\\\",\\\"korean_gloss\\\":\\\"뜻\\\",\\\"english_definition\\\":\\\"meaning\\\"}\"}\n\n"
           + completedEvent(
             text:
-              "{\"selected_surface\":\"word\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\"}",
+              "{\"selected_surface\":\"word\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\",\"type\":\"word\"}",
             terminalTexts: ["first", "second"])
       ])
+  }
+
+  func testTypeClassificationFallsBackOnlyForInvalidTypeValues() async throws {
+    let cases: [(String, DefinitionClassification)] = [
+      ("\"type\":\"word\"", .word),
+      ("\"type\":\"phrase\"", .phrase),
+      ("", .fallbackRequired),
+      ("\"type\":null", .fallbackRequired),
+      ("\"type\":1", .fallbackRequired),
+      ("\"type\":true", .fallbackRequired),
+      ("\"type\":[]", .fallbackRequired),
+      ("\"type\":{}", .fallbackRequired),
+      ("\"type\":\"\"", .fallbackRequired),
+      ("\"type\":\"Word\"", .fallbackRequired),
+      ("\"type\":\" phrase\"", .fallbackRequired),
+      ("\"type\":\"unknown\"", .fallbackRequired),
+    ]
+    for (typeField, expected) in cases {
+      let separator = typeField.isEmpty ? "" : ","
+      let text =
+        "{\"selected_surface\":\"word\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\"\(separator)\(typeField)}"
+      let result = try await client(ScriptedTransport(chunks: [completedEvent(text: text)])).define(
+        request())
+      XCTAssertEqual(result.classification, expected, "type field: \(typeField)")
+    }
+    await assertError(
+      .invalidSchema,
+      chunks: [completedEvent(
+        text:
+          "{\"selected_surface\":\"word\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\",\"type\":\"word\",\"extra\":\"x\"}"
+      )])
   }
 
   func testInvalidUTF8AndLateNonterminalAfterCompletionAreRejected() async {
@@ -266,7 +308,7 @@ final class DefinitionClientTests: XCTestCase {
     )
     let completed = completedEvent(
       text:
-        "{\"selected_surface\":\"word\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\"}")
+        "{\"selected_surface\":\"word\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\",\"type\":\"word\"}")
     await assertError(
       .lateEvent,
       chunks: [completed + "event: response.created\ndata: {\"type\":\"response.created\"}\n\n"])
@@ -284,7 +326,7 @@ final class DefinitionClientTests: XCTestCase {
       .prematureEOF, chunks: ["event: response.output_text.delta\ndata: {\"delta\":\"{}\"}\n\n"])
     let completed = completedEvent(
       text:
-        "{\"selected_surface\":\"word\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\"}"
+        "{\"selected_surface\":\"word\",\"korean_gloss\":\"뜻\",\"english_definition\":\"meaning\",\"type\":\"word\"}"
     )
     await assertError(.duplicateTerminal, chunks: [completed + completed])
   }

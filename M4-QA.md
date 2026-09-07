@@ -18,6 +18,8 @@ Record content-free digests for the frozen source, signed executable, test resul
 - Sandbox and network-client entitlements are present; prohibited permissions are absent.
 - GRDB.swift 7.11.1 is the only package dependency.
 - The exact production model remains `gpt-5.6-luna`.
+- Record the changed Definition prompt, schema, and configuration SHA-256 hashes in the classification-gate manifest.
+- Execute the four-case type-aware M5 Semantic Classification Gate and retain create-only `command.json`, `classification-gate-manifest.json`, `classification-gate-report.json`, and `provenance.json` in `Semantic-Gate-Evidence/m5-classification-final-v2-2026-08-31/`. Missing evidence, hash mismatch, failed threshold, overwrite, or waiver blocks release.
 
 ## Signed host matrix
 
@@ -39,10 +41,13 @@ Inspect the status item, capture panel, API-key Settings, and Library with signe
 - Library Entries: mode → search → list → editor fields → history → completed detail → actions → mode. The unresolved-status filter is hidden and inapplicable in Entries mode.
 - Library Unresolved: mode → status filter → list → unresolved detail → retry actions → delete → Settings → refresh → mode. Search remains visible for layout stability but is disabled and skipped by keyboard traversal in Unresolved mode.
 - API-key Settings: secure field → Save/Replace → Remove when present → Cancel.
+- Capture selection exposes complete memory-only/confirmation disclosure through `accessibilityHelp`; progress is generic and contains no provider or model identifier.
 
 No background database, connectivity, lookup, or recovery event may activate the app, reopen Library, or recreate a dismissed panel.
 
 ## Retention, retry, and deletion disclosures
+
+The capture panel does not render a separate visual disclosure footer. Its complete disclosure remains in `accessibilityHelp`; the authoritative visible disclosure and shortcut guidance is the status-menu item **Capture Privacy & Shortcut…**.
 
 Confirm the UI truthfully states:
 
@@ -68,6 +73,8 @@ Use synthetic databases and clients; do not mutate the production Keychain or us
 - Permanent completion failure with no second provider request.
 - Commit-before-cancel unresolved deletion and late-result rejection.
 - Global lookup concurrency remains one.
+- Verify v2 fixture migration success and injected rebuild rollback; new Entries receive normalized sentence and zero-based UTF-16 end-exclusive selection context only from the durable, generation-checked Encounter.
+- Verify Entry reuse and user edits retain stored context and `isPhrase`; valid `word`/`phrase` classification controls only a new Entry and invalid or absent type uses executor-owned claimed-token-count fallback.
 
 ## Multi-display matrix
 
