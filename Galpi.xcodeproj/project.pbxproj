@@ -150,6 +150,10 @@
       isa = PBXBuildFile;
       fileRef = C10000000000000000000053;
     };
+    C10000000000000000000055 /* SettingsController.swift in Sources */ = {
+      isa = PBXBuildFile;
+      fileRef = C10000000000000000000054;
+    };
     /* End PBXBuildFile section */
     D50000000000000000000001 /* main.swift in Sources */ = {
       isa = PBXBuildFile;
@@ -347,6 +351,12 @@
       path = LibraryControllerTests.swift;
       sourceTree = "<group>";
     };
+    C10000000000000000000054 /* SettingsController.swift */ = {
+      isa = PBXFileReference;
+      lastKnownFileType = sourcecode.swift;
+      path = SettingsController.swift;
+      sourceTree = "<group>";
+    };
     D50000000000000000000002 /* main.swift */ = {
       isa = PBXFileReference;
       lastKnownFileType = sourcecode.swift;
@@ -403,6 +413,7 @@
         C10000000000000000000032 /* KeychainAPIKeyStore.swift */,
         C10000000000000000000050 /* LookupExecutor.swift */,
         C10000000000000000000052 /* LibraryController.swift */,
+        C10000000000000000000054 /* SettingsController.swift */,
         A10000000000000000000012 /* NonactivatingPanel.swift */,
         A10000000000000000000014 /* Info.plist */,
         C10000000000000000000035 /* Galpi.entitlements */
@@ -530,6 +541,7 @@
         C10000000000000000000024 /* KeychainAPIKeyStore.swift in Sources */,
         C10000000000000000000040 /* LookupExecutor.swift in Sources */,
         C10000000000000000000043 /* LibraryController.swift in Sources */,
+        C10000000000000000000055 /* SettingsController.swift in Sources */,
         A10000000000000000000002 /* NonactivatingPanel.swift in Sources */
       );
       runOnlyForDeploymentPostprocessing = 0;

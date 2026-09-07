@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private let panelController = NonactivatingPanelController()
   private let performanceLog = OSLog(subsystem: "com.galpi.app", category: "CapturePerformance")
   private let keyStore = KeychainAPIKeyStore()
+  private lazy var settingsController = SettingsController(keyStore: keyStore)
   private let networkMonitor = NWPathMonitor()
   private let networkQueue = DispatchQueue(label: "com.galpi.network-path")
   private var statusItem: NSStatusItem?
@@ -44,7 +45,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       await lookupExecutor.shutdown()
       await MainActor.run {
         guard self.terminationState.complete() else { return }
-        EvidenceLog.shared.flush()
         sender.reply(toApplicationShouldTerminate: true)
       }
     }
@@ -57,21 +57,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     error: AutoreleasingUnsafeMutablePointer<NSString?>
   ) {
     let selectedText = pasteboard.string(forType: .string) ?? ""
-    let invocation = ServiceInvocation(
-      wallTime: Date(),
-      uptime: ProcessInfo.processInfo.systemUptime)
     os_signpost(.event, log: performanceLog, name: "Service Callback")
     do {
       let document = try CaptureDocument(rawText: selectedText)
-      panelController.show(document: document, invocation: invocation)
-    } catch CaptureDocumentError.empty {
-      return
-    } catch CaptureDocumentError.sentenceTooLong {
-      EvidenceLog.shared.append(
-        event: "serviceRejected", invocation: invocation, detail: "sentenceTooLong")
+      panelController.show(document: document)
     } catch {
-      EvidenceLog.shared.append(
-        event: "serviceRejected", invocation: invocation, detail: "invalidInput")
+      return
     }
   }
 
@@ -79,21 +70,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     item.button?.title = "Galpi"
     item.button?.setAccessibilityLabel("Galpi status menu")
-    item.button?.setAccessibilityHelp(
-      "Open Galpi API key settings, Library, privacy guidance, evidence actions, or Quit.")
+    item.button?.setAccessibilityHelp("Open Galpi Library, Settings, or Quit.")
     let menu = NSMenu()
     menu.addItem(
-      withTitle: "OpenAI API Key…", action: #selector(showAPIKeySettings), keyEquivalent: "")
-    menu.addItem(
-      withTitle: "Library…", action: #selector(showLibrary), keyEquivalent: "")
-    menu.addItem(
-      withTitle: "Capture Privacy & Shortcut…", action: #selector(showCaptureInformation),
-      keyEquivalent: "")
+      withTitle: "Library…", action: #selector(showLibrary), keyEquivalent: "l")
     menu.addItem(.separator())
     menu.addItem(
-      withTitle: "Show Evidence Location", action: #selector(showEvidenceLocation),
-      keyEquivalent: "")
-    menu.addItem(withTitle: "Clear Evidence", action: #selector(clearEvidence), keyEquivalent: "")
+      withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
     menu.addItem(.separator())
     menu.addItem(withTitle: "Quit Galpi", action: #selector(quit), keyEquivalent: "q")
     menu.items.forEach { $0.target = self }
@@ -157,7 +140,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
           }
         }
       }
-      libraryController.settingsHandler = { [weak self] in self?.showAPIKeySettings() }
+      libraryController.settingsHandler = { [weak self] in self?.showSettings() }
       self.libraryController = libraryController
 
       networkMonitor.pathUpdateHandler = { [weak executor] path in
@@ -168,9 +151,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       networkMonitor.start(queue: networkQueue)
       Task { await executor.startupRecovery() }
     } catch {
-      EvidenceLog.shared.append(event: "databaseUnavailable", detail: "openFailed")
+      showSanitizedAlert(
+        title: "Local Storage Unavailable",
+        message: "Galpi could not open its local database. Lookups and Library will be unavailable until this is resolved.")
       let unavailableLibrary = LibraryController(viewModel: UnavailableLibraryDataProvider())
-      unavailableLibrary.settingsHandler = { [weak self] in self?.showAPIKeySettings() }
+      unavailableLibrary.settingsHandler = { [weak self] in self?.showSettings() }
       libraryController = unavailableLibrary
     }
   }
@@ -179,7 +164,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     panelController.confirmationHandler = { [weak self] capture in
       self?.persistConfirmation(capture)
     }
-    panelController.openSettingsHandler = { [weak self] in self?.showAPIKeySettings() }
+    panelController.openSettingsHandler = { [weak self] in self?.showSettings() }
     panelController.retryHandler = { [weak self] id in
       guard let self, let executor = self.lookupExecutor else { return }
       Task {
@@ -199,12 +184,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let input = PendingEncounterInput(id: id, confirmedCapture: capture)
     do {
       _ = try database.createPending(input, nowMilliseconds: capture.capturedAtMilliseconds)
-      EvidenceLog.shared.append(event: "encounterPersisted", detail: "pending")
       libraryController?.notifyDatabaseChanged()
       Task { await lookupExecutor.offer(encounterID: id) }
       return id
     } catch {
-      EvidenceLog.shared.append(event: "encounterPersistenceFailed", detail: "writeFailed")
       return nil
     }
   }
@@ -280,87 +263,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     notificationTokens.append(clockChange)
   }
 
-  @objc private func showAPIKeySettings() {
-    let present: Bool
-    do {
-      present = try keyStore.contains()
-    } catch {
-      showSanitizedAlert(title: "Keychain Unavailable", message: "Keychain access failed.")
-      return
-    }
-    let alert = NSAlert()
-    alert.messageText = "OpenAI API Key"
-    alert.informativeText =
-      present
-      ? ReleaseGuidance.apiKeyStored
-      : ReleaseGuidance.apiKeyMissing
-    let field = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 24))
-    field.placeholderString = present ? "Replacement API key" : "API key"
-    field.setAccessibilityLabel(present ? "Replacement OpenAI API key" : "OpenAI API key")
-    field.setAccessibilityHelp(
-      "Stored only in Keychain. The existing key is never displayed or copied into SQLite.")
-    alert.accessoryView = field
-    alert.addButton(withTitle: present ? "Replace" : "Save")
-    if present { alert.addButton(withTitle: "Remove") }
-    alert.addButton(withTitle: "Cancel")
-
-    NSApp.activate(ignoringOtherApps: true)
-    alert.window.initialFirstResponder = field
-    alert.window.makeFirstResponder(field)
-    let response = alert.runModal()
-    if response == .alertFirstButtonReturn {
-      do {
-        try keyStore.save(field.stringValue)
-      } catch KeychainAPIKeyStoreError.emptyAPIKey {
-        showSanitizedAlert(title: "Key Not Saved", message: "Enter a nonempty key and try again.")
-      } catch {
-        showSanitizedAlert(title: "Key Not Saved", message: "Keychain access failed.")
-      }
-    } else if present, response == .alertSecondButtonReturn {
-      do {
-        try keyStore.delete()
-      } catch {
-        showSanitizedAlert(title: "Key Not Removed", message: "Keychain access failed.")
-      }
-    }
+  @objc private func showSettings() {
+    settingsController.show()
   }
 
   @objc private func showLibrary() {
     libraryController?.show()
   }
 
-  @objc private func showCaptureInformation() {
-    let alert = NSAlert()
-    alert.messageText = "Capture Privacy & Shortcut"
-    alert.informativeText = ReleaseGuidance.capturePrivacy
-    alert.addButton(withTitle: "OK")
-    alert.runModal()
-  }
-
-  @objc private func showEvidenceLocation() {
-    let directory = EvidenceLog.shared.directoryURL
-    do {
-      try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-      guard NSWorkspace.shared.open(directory) else {
-        showSanitizedAlert(
-          title: "Evidence Location Not Opened", message: "The folder could not be opened.")
-        return
-      }
-    } catch {
-      showSanitizedAlert(
-        title: "Evidence Location Unavailable", message: "The folder could not be created.")
-    }
-  }
-
-  @objc private func clearEvidence() {
-    EvidenceLog.shared.clear { [weak self] succeeded in
-      guard !succeeded else { return }
-      Task { @MainActor in
-        self?.showSanitizedAlert(
-          title: "Evidence Not Cleared", message: "The evidence file could not be removed.")
-      }
-    }
-  }
   @objc private func quit() { NSApp.terminate(nil) }
 
   private func showSanitizedAlert(title: String, message: String) {

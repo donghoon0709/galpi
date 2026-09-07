@@ -47,11 +47,6 @@ internal enum PanelPositioner {
   }
 }
 
-struct ServiceInvocation {
-  let wallTime: Date
-  let uptime: TimeInterval
-}
-
 internal struct ConfirmedCapture: Sendable {
   let normalizedSentence: String
   let surfaceForm: String
@@ -93,52 +88,6 @@ internal enum CapturePresentationState: Equatable {
   }
 }
 
-internal enum EvidenceResponderCategory: String, Encodable, Sendable {
-  case captureSelection
-  case actionButton
-  case other
-}
-
-internal struct Evidence: Encodable, Sendable {
-  let event: String
-  let wallTime: Date
-  let uptime: TimeInterval
-  let callbackWallTime: Date?
-  let callbackUptime: TimeInterval?
-  let panelIsKeyWindow: Bool
-  let panelIsMainWindow: Bool
-  let firstResponderCategory: EvidenceResponderCategory?
-  let screenFrame: CGRect?
-  let pointerLocation: CGPoint
-  let panelFrame: CGRect?
-  let normalizedScalarCount: Int?
-  let tokenCount: Int?
-  let selectedTokenCount: Int?
-  let selectedSurfaceScalarCount: Int?
-  let confirmationEligible: Bool?
-  let detail: String?
-
-  enum CodingKeys: String, CodingKey, CaseIterable {
-    case event
-    case wallTime
-    case uptime
-    case callbackWallTime
-    case callbackUptime
-    case panelIsKeyWindow
-    case panelIsMainWindow
-    case firstResponderCategory
-    case screenFrame
-    case pointerLocation
-    case panelFrame
-    case normalizedScalarCount
-    case tokenCount
-    case selectedTokenCount
-    case selectedSurfaceScalarCount
-    case confirmationEligible
-    case detail
-  }
-}
-
 internal enum ReleaseGuidance {
   static let apiKeyStored =
     "A key is stored only in Keychain. Enter a replacement or remove it; the existing value is never shown. Removing the key stops new OpenAI requests but does not delete local Library records."
@@ -149,96 +98,6 @@ internal enum ReleaseGuidance {
 
     Before confirmation, text exists only in memory. Return stores the normalized sentence and selected surface locally and sends both to OpenAI using store:false. Closing the panel does not cancel or delete confirmed work. Work known to be offline before an attempt remains local without consuming an attempt and resumes after connectivity or relaunch. Correct a missing key, authentication, or permission problem first; then retry failed work in Library. Delete an unresolved lookup in Library to remove it; deleting an Entry permanently removes that Entry and all linked Encounter history. Removing the API key does not delete Library data. Apple Books is not supported.
     """
-}
-
-final class EvidenceLog: @unchecked Sendable {
-  static let shared = EvidenceLog()
-
-  private let queue = DispatchQueue(label: "com.galpi.evidence")
-  private let evidenceURL: URL
-
-  private init() {
-    let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-      .first!
-    evidenceURL = support.appendingPathComponent("Galpi", isDirectory: true).appendingPathComponent(
-      "evidence.jsonl")
-  }
-
-  var directoryURL: URL { evidenceURL.deletingLastPathComponent() }
-
-  @MainActor
-  func append(
-    event: String,
-    invocation: ServiceInvocation? = nil,
-    panel: NSPanel? = nil,
-    screenFrame: CGRect? = nil,
-    state: CaptureSelectionState? = nil,
-    detail: String? = nil
-  ) {
-    let evidence = Evidence(
-      event: event,
-      wallTime: Date(),
-      uptime: ProcessInfo.processInfo.systemUptime,
-      callbackWallTime: invocation?.wallTime,
-      callbackUptime: invocation?.uptime,
-      panelIsKeyWindow: panel?.isKeyWindow ?? false,
-      panelIsMainWindow: panel?.isMainWindow ?? false,
-      firstResponderCategory: Self.responderCategory(panel?.firstResponder),
-      screenFrame: screenFrame,
-      pointerLocation: NSEvent.mouseLocation,
-      panelFrame: panel?.frame,
-      normalizedScalarCount: state?.document.scalarCount,
-      tokenCount: state?.document.tokenCount,
-      selectedTokenCount: state?.selection.selectedTokenCount,
-      selectedSurfaceScalarCount: state?.selectedSurfaceScalarCount,
-      confirmationEligible: state?.canConfirm,
-      detail: detail
-    )
-    queue.async { [evidenceURL] in
-      do {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        try FileManager.default.createDirectory(
-          at: evidenceURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        var line = try encoder.encode(evidence)
-        line.append(0x0A)
-        if FileManager.default.fileExists(atPath: evidenceURL.path) {
-          let handle = try FileHandle(forWritingTo: evidenceURL)
-          defer { try? handle.close() }
-          try handle.seekToEnd()
-          try handle.write(contentsOf: line)
-        } else {
-          try line.write(to: evidenceURL, options: .atomic)
-        }
-      } catch {
-        // Evidence failures intentionally remain content-free and do not affect the host app.
-      }
-    }
-  }
-
-  private static func responderCategory(_ responder: NSResponder?) -> EvidenceResponderCategory? {
-    guard let responder else { return nil }
-    if responder is CaptureInputView { return .captureSelection }
-    if responder is NSButton { return .actionButton }
-    return .other
-  }
-
-  func clear(completion: @escaping @Sendable (Bool) -> Void) {
-    queue.async { [evidenceURL] in
-      do {
-        if FileManager.default.fileExists(atPath: evidenceURL.path) {
-          try FileManager.default.removeItem(at: evidenceURL)
-        }
-        completion(true)
-      } catch {
-        completion(false)
-      }
-    }
-  }
-
-  func flush() {
-    queue.sync {}
-  }
 }
 
 internal struct TokenLayoutFragment: Equatable {
@@ -981,7 +840,6 @@ final class NonactivatingPanelController: NSObject, NSWindowDelegate {
   private var panel: NSPanel?
   private var globalMouseMonitor: Any?
   private var localMouseMonitor: Any?
-  private var invocation: ServiceInvocation?
   private var lifecycle = PanelLifecycleState()
 
   isolated deinit {
@@ -994,14 +852,12 @@ final class NonactivatingPanelController: NSObject, NSWindowDelegate {
   }
 
   func shutdown() {
-    dismiss(reason: "termination")
-    EvidenceLog.shared.flush()
+    dismiss()
   }
 
-  func show(document: CaptureDocument, invocation: ServiceInvocation) {
-    dismiss(reason: "replacement")
+  func show(document: CaptureDocument) {
+    dismiss()
     let generation = lifecycle.beginPanel()
-    self.invocation = invocation
     let panel = DiagnosticPanel(
       contentRect: .init(origin: .zero, size: panelSize),
       styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
@@ -1021,13 +877,6 @@ final class NonactivatingPanelController: NSObject, NSWindowDelegate {
     if let frame { panel.setFrame(frame, display: true) }
     self.panel = panel
     panel.makeFirstResponder(view)
-    EvidenceLog.shared.append(
-      event: "panelCreate",
-      invocation: invocation,
-      panel: panel,
-      screenFrame: panel.screen?.visibleFrame,
-      state: view.state
-    )
     installMonitors(generation: generation)
     panel.orderFrontRegardless()
     panel.makeKey()
@@ -1039,18 +888,11 @@ final class NonactivatingPanelController: NSObject, NSWindowDelegate {
     if let view = panel.contentView as? CaptureInputView {
       view.markKeyWindowReady()
     }
-    EvidenceLog.shared.append(
-      event: "panelReady",
-      invocation: invocation,
-      panel: panel,
-      screenFrame: panel.screen?.visibleFrame,
-      state: (panel.contentView as? CaptureInputView)?.state
-    )
   }
 
   func windowDidResignKey(_ notification: Notification) {
     guard let panel, let window = notification.object as? NSWindow, window === panel else { return }
-    dismiss(reason: "resignKey")
+    dismiss()
   }
 
   func updateLookup(
@@ -1084,18 +926,10 @@ final class NonactivatingPanelController: NSObject, NSWindowDelegate {
 
   func handleAction(_ action: String, state: CaptureSelectionState? = nil) {
     guard let panel else { return }
-    EvidenceLog.shared.append(
-      event: "panelAction",
-      invocation: invocation,
-      panel: panel,
-      screenFrame: panel.screen?.visibleFrame,
-      state: state ?? (panel.contentView as? CaptureInputView)?.state,
-      detail: action
-    )
     if action == "escape" {
-      dismiss(reason: "escape")
+      dismiss()
     } else if action == "closeResolved" {
-      dismiss(reason: "resolved")
+      dismiss()
     } else if action == "settings" {
       openSettingsHandler?()
     } else if action == "retry",
@@ -1141,7 +975,7 @@ final class NonactivatingPanelController: NSObject, NSWindowDelegate {
         guard let self, let panel, self.panel === panel, self.lifecycle.isCurrent(generation) else {
           return
         }
-        self.dismiss(reason: "globalMouse")
+        self.dismiss()
       }
     }
     localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] event in
@@ -1149,42 +983,25 @@ final class NonactivatingPanelController: NSObject, NSWindowDelegate {
         return event
       }
       if event.window !== panel {
-        self.dismiss(reason: "localOutsideMouse")
+        self.dismiss()
       } else {
         self.handleAction("localPanelMouse")
       }
       return event
     }
-    EvidenceLog.shared.append(
-      event: "monitorCreate",
-      invocation: invocation,
-      panel: panel,
-      screenFrame: panel.screen?.visibleFrame,
-      state: (panel.contentView as? CaptureInputView)?.state
-    )
   }
 
-  private func dismiss(reason: String) {
+  private func dismiss() {
     guard let panel, let generation = lifecycle.activeGeneration else { return }
     self.panel = nil
     (panel.contentView as? CaptureInputView)?.updateLookup(
       message: "", presentation: .selecting)
-    EvidenceLog.shared.append(
-      event: "panelDismiss",
-      invocation: invocation,
-      panel: panel,
-      screenFrame: panel.screen?.visibleFrame,
-      state: (panel.contentView as? CaptureInputView)?.state,
-      detail: reason
-    )
-    removeMonitors(reason: reason, panel: panel)
+    removeMonitors()
     lifecycle.finishPanel(generation)
     panel.orderOut(nil)
-    invocation = nil
   }
 
-  private func removeMonitors(reason: String, panel: NSPanel? = nil) {
-    let evidencePanel = panel ?? self.panel
+  private func removeMonitors() {
     if let globalMouseMonitor {
       NSEvent.removeMonitor(globalMouseMonitor)
       self.globalMouseMonitor = nil
@@ -1192,16 +1009,6 @@ final class NonactivatingPanelController: NSObject, NSWindowDelegate {
     if let localMouseMonitor {
       NSEvent.removeMonitor(localMouseMonitor)
       self.localMouseMonitor = nil
-    }
-    if let evidencePanel {
-      EvidenceLog.shared.append(
-        event: "monitorRemove",
-        invocation: invocation,
-        panel: evidencePanel,
-        screenFrame: evidencePanel.screen?.visibleFrame,
-        state: (evidencePanel.contentView as? CaptureInputView)?.state,
-        detail: reason
-      )
     }
   }
 }

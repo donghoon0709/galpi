@@ -258,18 +258,13 @@ final class DiagnosticPanelStateTests: XCTestCase {
       confirmations.append($0)
       return "opaque-id"
     }
-    let invocation = ServiceInvocation(
-      wallTime: Date(),
-      uptime: ProcessInfo.processInfo.systemUptime
-    )
-
     let overlong = try CaptureDocument(rawText: String(repeating: "a", count: 501))
-    controller.show(document: overlong, invocation: invocation)
+    controller.show(document: overlong)
     controller.handleAction("return", state: CaptureSelectionState(document: overlong))
     XCTAssertTrue(confirmations.isEmpty)
 
     let eligible = try CaptureDocument(rawText: "A contextual term appears.")
-    controller.show(document: eligible, invocation: invocation)
+    controller.show(document: eligible)
     controller.handleAction("return", state: CaptureSelectionState(document: eligible))
     XCTAssertEqual(confirmations.count, 1)
     XCTAssertEqual(confirmations[0].surfaceForm, "A")
@@ -390,65 +385,5 @@ final class DiagnosticPanelStateTests: XCTestCase {
     view.frame.size.width = 220
     view.layoutSubtreeIfNeeded()
     XCTAssertNotEqual(view.tokenLayoutSnapshot.fragments.map(\.drawRect), narrowRects)
-  }
-}
-
-final class EvidencePrivacyTests: XCTestCase {
-  func testEvidenceSchemaContainsOnlyContentFreeFields() {
-    let keys = Set(Evidence.CodingKeys.allCases.map(\.rawValue))
-    let expected: Set<String> = [
-      "event", "wallTime", "uptime", "callbackWallTime", "callbackUptime",
-      "panelIsKeyWindow", "panelIsMainWindow", "firstResponderCategory",
-      "screenFrame", "pointerLocation", "panelFrame", "normalizedScalarCount",
-      "tokenCount", "selectedTokenCount", "selectedSurfaceScalarCount",
-      "confirmationEligible", "detail",
-    ]
-
-    XCTAssertEqual(keys, expected)
-    for forbidden in [
-      "selectedText", "selectedSurface", "clipboard", "title", "url",
-      "sourceApp", "bundleIdentifier", "applicationName", "processIdentifier",
-      "pasteboardTypes",
-    ] {
-      XCTAssertFalse(keys.contains(forbidden))
-    }
-  }
-
-  func testEncodedEvidenceCannotContainSentenceOrSelectedSurfaceFields() throws {
-    let evidence = Evidence(
-      event: "panelAction",
-      wallTime: Date(timeIntervalSince1970: 0),
-      uptime: 1,
-      callbackWallTime: nil,
-      callbackUptime: nil,
-      panelIsKeyWindow: true,
-      panelIsMainWindow: false,
-      firstResponderCategory: .captureSelection,
-      screenFrame: CGRect(x: 0, y: 0, width: 100, height: 100),
-      pointerLocation: CGPoint(x: 10, y: 10),
-      panelFrame: CGRect(x: 0, y: 0, width: 50, height: 50),
-      normalizedScalarCount: 12,
-      tokenCount: 3,
-      selectedTokenCount: 2,
-      selectedSurfaceScalarCount: 8,
-      confirmationEligible: true,
-      detail: "shiftRight"
-    )
-
-    let json = String(decoding: try JSONEncoder().encode(evidence), as: UTF8.self)
-    XCTAssertFalse(json.contains("selectedText"))
-    XCTAssertFalse(json.contains("selectedSurface\""))
-    XCTAssertFalse(json.contains("sourceApp"))
-    XCTAssertFalse(json.contains("bundleIdentifier"))
-    XCTAssertFalse(json.contains("com.vendor.product.private-type"))
-    XCTAssertFalse(json.contains("pasteboardTypes"))
-    XCTAssertTrue(json.contains("\"firstResponderCategory\":\"captureSelection\""))
-    XCTAssertEqual(
-      Set([
-        EvidenceResponderCategory.captureSelection.rawValue,
-        EvidenceResponderCategory.actionButton.rawValue,
-        EvidenceResponderCategory.other.rawValue,
-      ]),
-      Set(["captureSelection", "actionButton", "other"]))
   }
 }
